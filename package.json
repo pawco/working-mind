@@ -1,0 +1,68 @@
+{
+  "name": "openexplorer",
+  "version": "0.1.0",
+  "description": "Open-source terminal AI agent — write a prompt, load tools, explore",
+  "type": "module",
+  "bin": {
+    "openexplorer": "./dist/cli.cjs",
+    "openExplorer": "./dist/cli.cjs"
+  },
+  "files": [
+    "dist/cli.cjs",
+    "dist/index.mjs",
+    "packs/explorer/",
+    "packs/researcher/",
+    "data/",
+    "src/pack-schema.json"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/cli.cjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "biome check src/",
+    "prepublishOnly": "node scripts/build.mjs"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "terminal",
+    "cli",
+    "explorer",
+    "open-source"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elgap-labs/openexplorer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/elgap-labs/openexplorer/issues"
+  },
+  "homepage": "https://github.com/elgap-labs/openexplorer#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.3.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "cli-highlight": "^2.1.11",
+    "commander": "^13.0.0",
+    "execa": "^9.5.0",
+    "ink": "^7.0.1",
+    "markdansi": "^0.2.1",
+    "openai": "^6.35.0",
+    "picocolors": "^1.0.0",
+    "react": "^19.2.5",
+    "strip-json-comments": "^5.0.3",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.5"
+  }
+}

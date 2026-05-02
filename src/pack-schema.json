@@ -1,0 +1,145 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "OpenExplorer Pack Manifest",
+	"description": "Declarative pack format for OpenExplorer — zero code, configuration + instructions only",
+	"type": "object",
+	"required": ["name", "version", "description", "prompt"],
+	"additionalProperties": false,
+	"properties": {
+		"name": {
+			"type": "string",
+			"pattern": "^[a-z][a-z0-9-]{2,29}$",
+			"description": "Pack identifier — lowercase, hyphenated, 3-30 chars"
+		},
+		"version": {
+			"type": "string",
+			"pattern": "^\\d+\\.\\d+\\.\\d+",
+			"description": "Semver version"
+		},
+		"description": {
+			"type": "string",
+			"minLength": 1,
+			"maxLength": 200
+		},
+		"author": {
+			"type": "string"
+		},
+		"license": {
+			"type": "string"
+		},
+		"private": {
+			"type": "boolean",
+			"default": false
+		},
+		"openexplorerMinVersion": {
+			"type": "string",
+			"description": "Minimum OpenExplorer version required"
+		},
+		"prompt": {
+			"type": "string",
+			"description": "Path to default system prompt file (relative to pack dir)"
+		},
+		"personas": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"required": ["prompt"],
+				"properties": {
+					"prompt": {
+						"type": "string",
+						"description": "Path to persona prompt file"
+					},
+					"toolFilter": {
+						"type": "object",
+						"properties": {
+							"preset": {
+								"type": "string",
+								"enum": ["all", "readonly", "none"]
+							},
+							"include": {
+								"type": "array",
+								"items": { "type": "string" }
+							},
+							"exclude": {
+								"type": "array",
+								"items": { "type": "string" }
+							}
+						}
+					}
+				}
+			}
+		},
+		"mcpServers": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "object",
+				"properties": {
+					"package": {
+						"type": "string",
+						"description": "npm package name for MCP server (started via npx)"
+					},
+					"command": {
+						"type": "array",
+						"items": { "type": "string" },
+						"description": "Custom command array (requires --allow-custom-commands)"
+					},
+					"required": {
+						"type": "boolean",
+						"default": false,
+						"description": "Must always be false — all MCP servers are optional"
+					},
+					"capability": {
+						"type": "string",
+						"description": "Human-readable capability this server provides"
+					},
+					"env": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "object",
+							"required": ["setting"],
+							"properties": {
+								"setting": {
+									"type": "string",
+									"description": "Setting name for storage"
+								},
+								"sensitive": {
+									"type": "boolean",
+									"default": false
+								},
+								"required": {
+									"type": "boolean",
+									"default": false,
+									"description": "Must always be false — all settings are optional"
+								},
+								"label": {
+									"type": "string"
+								},
+								"hint": {
+									"type": "string"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"settings": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": ["name", "description", "envVar"],
+				"properties": {
+					"name": { "type": "string" },
+					"description": { "type": "string" },
+					"envVar": { "type": "string" },
+					"sensitive": { "type": "boolean", "default": false },
+					"required": {
+						"type": "boolean",
+						"default": false,
+						"description": "Must always be false — all settings are optional"
+					}
+				}
+			}
+		}
+	}
+}

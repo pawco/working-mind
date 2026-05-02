@@ -1,0 +1,321 @@
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { Box, Text } from 'ink';
+import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
+import type { UserConfig } from './config.js';
+import type { McpRegistry } from './mcp/registry.js';
+import {
+	ensureMemoriesDir,
+	getActiveStoreName,
+	listMemoryStores,
+	type MemoryStoreInfo,
+} from './memory/render.js';
+import { getStorePath } from './paths.js';
+
+type MemoryWizardStep =
+	| {
+			id: 'store-list';
+			cursor: number;
+			stores: MemoryStoreInfo[];
+			creating: boolean;
+			newName: string;
+	  }
+	| { id: 'switching'; storeName: string }
+	| { id: 'switched'; storeName: string; entityCount: number }
+	| { id: 'error'; error: string };
+
+export interface MemoryWizardHandle {
+	handleKey: (inputChar: string, key: any) => void;
+}
+
+export interface MemoryWizardProps {
+	mcpRegistry: McpRegistry;
+	onDone: (message: string) => void;
+	getUserConfig: () => UserConfig | undefined;
+	writeUserConfigFn: (config: UserConfig) => void;
+}
+
+export const MemoryWizard = forwardRef<MemoryWizardHandle, MemoryWizardProps>(
+	function MemoryWizard(
+		{ mcpRegistry, onDone, getUserConfig, writeUserConfigFn },
+		ref,
+	) {
+		const [step, setStep] = useState<MemoryWizardStep>(() => {
+			const stores = listMemoryStores();
+			return {
+				id: 'store-list',
+				cursor: 0,
+				stores,
+				creating: false,
+				newName: '',
+			};
+		});
+
+		const doSwitch = useCallback(
+			async (storeName: string) => {
+				setStep({ id: 'switching', storeName });
+
+				ensureMemoriesDir();
+				const storePath = getStorePath(storeName);
+				if (!existsSync(storePath)) {
+					const dir = join(storePath, '..');
+					if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+					writeFileSync(storePath, '', 'utf-8');
+				}
+
+				process.env.MEMORY_FILE_PATH = storePath;
+
+				const cfg = getUserConfig();
+				if (cfg) {
+					cfg.lastMemoryStore = storeName;
+					writeUserConfigFn(cfg);
+				}
+
+				if (!mcpRegistry.hasServer('memory')) {
+					onDone(
+						`Switched to memory store '${storeName}'. Memory MCP server is not connected -- run /mcp-connect memory to reconnect.`,
+					);
+					return;
+				}
+
+				const result = await mcpRegistry.reconnectMemoryStore(
+					storeName,
+					storePath,
+				);
+				if (result.success) {
+					setStep({
+						id: 'switched',
+						storeName,
+						entityCount: result.entityCount,
+					});
+				} else {
+					setStep({ id: 'error', error: result.error || 'Reconnect failed' });
+				}
+			},
+			[mcpRegistry, getUserConfig, writeUserConfigFn, onDone],
+		);
+
+		const handleKey = useCallback(
+			(inputChar: string, key: any) => {
+				const s = step;
+
+				if (s.id === 'store-list') {
+					if (s.creating) {
+						if (key.escape) {
+							setStep({ ...s, creating: false, newName: '' });
+							return;
+						}
+						if (key.return) {
+							const name = s.newName
+								.trim()
+								.toLowerCase()
+								.replace(/[^a-z0-9_-]/g, '');
+							if (!name || !/^[a-z][a-z0-9_-]{0,49}$/.test(name)) {
+								return;
+							}
+							doSwitch(name);
+							return;
+						}
+						if (key.backspace) {
+							setStep({ ...s, newName: s.newName.slice(0, -1) });
+							return;
+						}
+						if (!key.ctrl && !key.meta && inputChar) {
+							setStep({ ...s, newName: s.newName + inputChar });
+						}
+						return;
+					}
+
+					const stores = s.stores;
+					const totalItems = stores.length + 1;
+
+					if (key.upArrow) {
+						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+						return;
+					}
+					if (key.downArrow) {
+						setStep({ ...s, cursor: Math.min(totalItems - 1, s.cursor + 1) });
+						return;
+					}
+					if (key.escape) {
+						onDone('');
+						return;
+					}
+					if (key.return) {
+						if (s.cursor === stores.length) {
+							setStep({ ...s, creating: true, newName: '' });
+							return;
+						}
+						const store = stores[s.cursor];
+						if (store) {
+							doSwitch(store.name);
+						}
+					}
+					return;
+				}
+
+				if (s.id === 'switching') {
+					if (key.escape) {
+						onDone('');
+					}
+					return;
+				}
+
+				if (s.id === 'switched') {
+					if (key.return || key.escape) {
+						onDone(
+							`Switched to memory store '${s.storeName}' (${s.entityCount} entities)`,
+						);
+					}
+					return;
+				}
+
+				if (s.id === 'error') {
+					if (key.return || key.escape) {
+						onDone(`Failed to switch memory store: ${s.error}`);
+					}
+					return;
+				}
+			},
+			[step, onDone, doSwitch],
+		);
+
+		useImperativeHandle(ref, () => ({ handleKey }), [handleKey]);
+
+		const activeName = getActiveStoreName(getUserConfig());
+
+		return (
+			<Box
+				flexDirection="column"
+				flexGrow={1}
+				backgroundColor="#0a0a1a"
+				paddingX={2}
+				paddingY={1}
+				overflow="hidden"
+			>
+				{renderStep(step, activeName)}
+				<Box marginTop={1}>
+					<Text dimColor>
+						{step.id === 'store-list'
+							? step.creating
+								? 'Type name  Enter create  Esc cancel'
+								: 'Up/Down navigate  Enter select  Esc cancel'
+							: 'Enter/Esc continue'}
+					</Text>
+				</Box>
+			</Box>
+		);
+	},
+);
+
+function renderStep(
+	step: MemoryWizardStep,
+	activeName: string,
+): React.ReactNode {
+	if (step.id === 'store-list') {
+		const stores = step.stores;
+		return (
+			<Box flexDirection="column">
+				<Text bold color="cyan">
+					Memory Stores
+				</Text>
+				<Text dimColor>────────────────────</Text>
+				<Box flexDirection="column" marginTop={1}>
+					{stores.map((store, i) => {
+						const isActive = store.name === activeName;
+						const selected = step.cursor === i && !step.creating;
+						const marker = isActive ? '●' : '○';
+						return (
+							<Box key={store.name}>
+								{selected ? (
+									<Text color="cyan" bold>
+										{marker}{' '}
+									</Text>
+								) : (
+									<Text dimColor>{marker} </Text>
+								)}
+								<Text bold={selected} color={selected ? 'white' : 'gray'}>
+									{store.name}
+								</Text>
+								<Text dimColor>
+									{store.exists && store.entityCount > 0
+										? ` (${store.entityCount} entities, ${store.observationCount} obs)`
+										: store.exists
+											? ' (empty)'
+											: ' (new)'}
+								</Text>
+							</Box>
+						);
+					})}
+					{step.creating ? (
+						<Box>
+							<Text color="cyan" bold>
+								{'▸ '}{' '}
+							</Text>
+							<Text color="white">Create: </Text>
+							<Text color="cyan">{step.newName}</Text>
+							<Text dimColor>▍</Text>
+						</Box>
+					) : (
+						<Box>
+							{step.cursor === stores.length ? (
+								<Text color="cyan" bold>
+									{'▸ '}{' '}
+								</Text>
+							) : (
+								<Text dimColor>{'  '} </Text>
+							)}
+							<Text dimColor>[Create New Store]</Text>
+						</Box>
+					)}
+				</Box>
+			</Box>
+		);
+	}
+
+	if (step.id === 'switching') {
+		return (
+			<Box flexDirection="column">
+				<Text bold color="cyan">
+					Switching Store
+				</Text>
+				<Text dimColor>────────────────────</Text>
+				<Text color="yellow">Switching to '{step.storeName}'...</Text>
+				<Text dimColor>Reconnecting memory MCP server</Text>
+			</Box>
+		);
+	}
+
+	if (step.id === 'switched') {
+		return (
+			<Box flexDirection="column">
+				<Text bold color="green">
+					Store Switched
+				</Text>
+				<Text dimColor>────────────────────</Text>
+				<Text color="green">Now using '{step.storeName}'</Text>
+				<Text dimColor>{step.entityCount} entities in this store</Text>
+				<Box marginTop={1}>
+					<Text dimColor>Press Enter to continue</Text>
+				</Box>
+			</Box>
+		);
+	}
+
+	if (step.id === 'error') {
+		return (
+			<Box flexDirection="column">
+				<Text bold color="red">
+					Switch Failed
+				</Text>
+				<Text dimColor>────────────────────</Text>
+				<Text color="red">{step.error}</Text>
+				<Box marginTop={1}>
+					<Text dimColor>Press Enter to continue</Text>
+				</Box>
+			</Box>
+		);
+	}
+
+	return null;
+}

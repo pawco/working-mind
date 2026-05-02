@@ -1,0 +1,869 @@
+{
+	// ═══════════════════════════════════════════════════════════════════
+	// OpenExplorer Provider & Model Registry
+	//
+	// This is the single source of truth for all provider/model metadata.
+	// The TypeScript provider-registry.ts loads this at runtime.
+	//
+	// Schema per provider:
+	//   id              — unique slug used in CLI flags (e.g. --provider openrouter)
+	//   displayName     — human-friendly name shown in wizards and logs
+	//   baseUrl         — API root URL
+	//   apiFormat        — "openai" | "anthropic" | "ollama" — wire format
+	//   envVar          — primary env var for the API key
+	//   envVarAliases   — alternate env var names (checked as fallbacks)
+	//   free            — true | false | "limited"
+	//   website         — provider dashboard / signup URL
+	//   needsApiKey     — true if an API key is required (ollama = false)
+	//   canValidate     — true if the provider exposes a /models endpoint
+	//   modelIdFormat   — "full" = org/model (openrouter), "provider-prefix" = bare id
+	//   modelPrefixes   — prefixes used by inferProvider to guess the provider
+	//   isPrimary       — shown first in the setup wizard
+	//   authStyle       — "bearer" | "x-api-key" | "none"
+	//   localProvider   — only for ollama: probe URL + preferred models
+	//   models[]        — array of model entries
+	//
+	// Schema per model:
+	//   id                  — exact model ID sent in API requests
+	//   displayName         — human-friendly name
+	//   contextWindow       — max context tokens
+	//   inputPricePer1M     — USD per 1M input tokens
+	//   outputPricePer1M    — USD per 1M output tokens
+	//   supportsReasoning   — model supports chain-of-thought / reasoning
+	//   supportsToolCalling — model supports function/tool calling
+	//   aliases[]           — short names for --model flag
+	// ═══════════════════════════════════════════════════════════════════
+
+	// ─── Providers ────────────────────────────────────────────────────
+	"providers": [
+		// ── OpenRouter ─────────────────────────────────────────────────
+		// Aggregator: routes to 200+ models via a single API key.
+		// Model IDs use "org/model" format (e.g. "anthropic/claude-sonnet-4.6").
+		{
+			"id": "openrouter",
+			"displayName": "OpenRouter",
+			"baseUrl": "https://openrouter.ai/api/v1",
+			"apiFormat": "openai",
+			"envVar": "OPENROUTER_API_KEY",
+			"envVarAliases": ["OPENEXPLORER_OPENROUTER_KEY"],
+			"free": "limited",
+			"website": "https://openrouter.ai",
+			"needsApiKey": true,
+			"canValidate": true,
+			"modelIdFormat": "full",
+			"modelPrefixes": [
+				"llama",
+				"mistral",
+				"qwen",
+				"phi",
+				"meta-llama",
+				"x-ai"
+			],
+			"isPrimary": true,
+			"authStyle": "bearer",
+			"models": [
+				{
+					"id": "anthropic/claude-sonnet-4.6",
+					"displayName": "Claude Sonnet 4.6",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 3.0,
+					"outputPricePer1M": 15.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["sonnet", "claude-sonnet"]
+				},
+				{
+					"id": "anthropic/claude-opus-4.7",
+					"displayName": "Claude Opus 4.7",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 5.0,
+					"outputPricePer1M": 25.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["opus", "claude-opus"]
+				},
+				{
+					"id": "anthropic/claude-haiku-4.5",
+					"displayName": "Claude Haiku 4.5",
+					"contextWindow": 200000,
+					"inputPricePer1M": 1.0,
+					"outputPricePer1M": 5.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["haiku", "claude-haiku"]
+				},
+				{
+					"id": "openai/gpt-5.4-mini",
+					"displayName": "GPT-5.4 Mini",
+					"contextWindow": 400000,
+					"inputPricePer1M": 0.75,
+					"outputPricePer1M": 4.5,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["gpt5mini", "5.4mini"]
+				},
+				{
+					"id": "openai/gpt-5.4",
+					"displayName": "GPT-5.4",
+					"contextWindow": 1100000,
+					"inputPricePer1M": 2.5,
+					"outputPricePer1M": 15.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["gpt5", "5.4"]
+				},
+				{
+					"id": "openai/gpt-5.5",
+					"displayName": "GPT-5.5",
+					"contextWindow": 272000,
+					"inputPricePer1M": 5.0,
+					"outputPricePer1M": 30.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["gpt55"]
+				},
+				{
+					"id": "openai/o3",
+					"displayName": "o3",
+					"contextWindow": 200000,
+					"inputPricePer1M": 2.0,
+					"outputPricePer1M": 16.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["o3"]
+				},
+				{
+					"id": "openai/o4-mini",
+					"displayName": "o4-mini",
+					"contextWindow": 200000,
+					"inputPricePer1M": 1.1,
+					"outputPricePer1M": 4.4,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["o4mini"]
+				},
+				{
+					"id": "google/gemini-2.5-flash",
+					"displayName": "Gemini 2.5 Flash",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.15,
+					"outputPricePer1M": 0.6,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["flash", "gemini-flash"]
+				},
+				{
+					"id": "google/gemini-3.1-pro-preview",
+					"displayName": "Gemini 3.1 Pro",
+					"contextWindow": 2000000,
+					"inputPricePer1M": 2.0,
+					"outputPricePer1M": 12.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["gemini-pro"]
+				},
+				{
+					"id": "deepseek/deepseek-v4-flash",
+					"displayName": "DeepSeek V4 Flash",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.14,
+					"outputPricePer1M": 0.28,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["ds4", "deepseek-flash"]
+				},
+				{
+					"id": "deepseek/deepseek-r1",
+					"displayName": "DeepSeek R1",
+					"contextWindow": 164000,
+					"inputPricePer1M": 0.7,
+					"outputPricePer1M": 2.19,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["r1", "deepseek-r1"]
+				},
+				{
+					"id": "meta-llama/llama-4-scout",
+					"displayName": "Llama 4 Scout",
+					"contextWindow": 512000,
+					"inputPricePer1M": 0.11,
+					"outputPricePer1M": 0.34,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["llama4", "scout"]
+				},
+				{
+					"id": "qwen/qwen3-coder-480b",
+					"displayName": "Qwen3 Coder 480B",
+					"contextWindow": 262000,
+					"inputPricePer1M": 0.8,
+					"outputPricePer1M": 4.8,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["qwen-coder"]
+				},
+				{
+					"id": "x-ai/grok-4.1-fast",
+					"displayName": "Grok 4.1 Fast",
+					"contextWindow": 2000000,
+					"inputPricePer1M": 0.2,
+					"outputPricePer1M": 1.5,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["grok"]
+				},
+				{
+					"id": "mistral/mistral-large-3",
+					"displayName": "Mistral Large 3",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0.5,
+					"outputPricePer1M": 3.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["mistral"]
+				}
+			]
+		},
+
+		// ── OpenAI ─────────────────────────────────────────────────────
+		// Direct access to GPT and o-series models.
+		{
+			"id": "openai",
+			"displayName": "OpenAI",
+			"baseUrl": "https://api.openai.com/v1",
+			"apiFormat": "openai",
+			"envVar": "OPENAI_API_KEY",
+			"envVarAliases": ["OPENEXPLORER_OPENAI_KEY"],
+			"free": false,
+			"website": "https://platform.openai.com",
+			"needsApiKey": true,
+			"canValidate": true,
+			"modelIdFormat": "provider-prefix",
+			"modelPrefixes": ["gpt", "o1", "o3", "o4"],
+			"isPrimary": true,
+			"authStyle": "bearer",
+			"models": [
+				{
+					"id": "gpt-5.4-nano",
+					"displayName": "GPT-5.4 Nano",
+					"contextWindow": 400000,
+					"inputPricePer1M": 0.2,
+					"outputPricePer1M": 1.25,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["nano"]
+				},
+				{
+					"id": "gpt-5.4-mini",
+					"displayName": "GPT-5.4 Mini",
+					"contextWindow": 400000,
+					"inputPricePer1M": 0.75,
+					"outputPricePer1M": 4.5,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["gpt5mini"]
+				},
+				{
+					"id": "gpt-5.4",
+					"displayName": "GPT-5.4",
+					"contextWindow": 1100000,
+					"inputPricePer1M": 2.5,
+					"outputPricePer1M": 15.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["gpt5"]
+				},
+				{
+					"id": "gpt-5.5",
+					"displayName": "GPT-5.5",
+					"contextWindow": 272000,
+					"inputPricePer1M": 5.0,
+					"outputPricePer1M": 30.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "o4-mini",
+					"displayName": "o4-mini",
+					"contextWindow": 200000,
+					"inputPricePer1M": 1.1,
+					"outputPricePer1M": 4.4,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["o4mini"]
+				},
+				{
+					"id": "o3",
+					"displayName": "o3",
+					"contextWindow": 200000,
+					"inputPricePer1M": 2.0,
+					"outputPricePer1M": 16.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "gpt-4.1-nano",
+					"displayName": "GPT-4.1 Nano",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.1,
+					"outputPricePer1M": 0.4,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "gpt-4.1-mini",
+					"displayName": "GPT-4.1 Mini",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.4,
+					"outputPricePer1M": 1.6,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "gpt-4.1",
+					"displayName": "GPT-4.1",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 2.0,
+					"outputPricePer1M": 8.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "gpt-4o-mini",
+					"displayName": "GPT-4o Mini",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0.15,
+					"outputPricePer1M": 0.6,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "gpt-4o",
+					"displayName": "GPT-4o",
+					"contextWindow": 128000,
+					"inputPricePer1M": 2.5,
+					"outputPricePer1M": 10.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				}
+			]
+		},
+
+		// ── Anthropic ──────────────────────────────────────────────────
+		// Direct access to Claude models. Uses the Anthropic wire format
+		// (x-api-key header, messages API).
+		{
+			"id": "anthropic",
+			"displayName": "Anthropic",
+			"baseUrl": "https://api.anthropic.com/v1",
+			"apiFormat": "anthropic",
+			"envVar": "ANTHROPIC_API_KEY",
+			"envVarAliases": ["OPENEXPLORER_ANTHROPIC_KEY"],
+			"free": false,
+			"website": "https://console.anthropic.com",
+			"needsApiKey": true,
+			"canValidate": true,
+			"modelIdFormat": "provider-prefix",
+			"modelPrefixes": ["claude"],
+			"isPrimary": true,
+			"authStyle": "x-api-key",
+			"models": [
+				{
+					"id": "claude-haiku-3-5",
+					"displayName": "Claude Haiku 3.5",
+					"contextWindow": 200000,
+					"inputPricePer1M": 0.8,
+					"outputPricePer1M": 4.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["haiku35"]
+				},
+				{
+					"id": "claude-haiku-4-5",
+					"displayName": "Claude Haiku 4.5",
+					"contextWindow": 200000,
+					"inputPricePer1M": 1.0,
+					"outputPricePer1M": 5.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["haiku"]
+				},
+				{
+					"id": "claude-sonnet-4-5",
+					"displayName": "Claude Sonnet 4.5",
+					"contextWindow": 200000,
+					"inputPricePer1M": 3.0,
+					"outputPricePer1M": 15.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["sonnet45"]
+				},
+				{
+					"id": "claude-sonnet-4-6",
+					"displayName": "Claude Sonnet 4.6",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 3.0,
+					"outputPricePer1M": 15.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["sonnet"]
+				},
+				{
+					"id": "claude-opus-4-6",
+					"displayName": "Claude Opus 4.6",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 5.0,
+					"outputPricePer1M": 25.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["opus46"]
+				},
+				{
+					"id": "claude-opus-4-7",
+					"displayName": "Claude Opus 4.7",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 5.0,
+					"outputPricePer1M": 25.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["opus"]
+				}
+			]
+		},
+
+		// ── Together AI ────────────────────────────────────────────────
+		// Open-weight model hosting. Uses org/Model case-sensitive IDs.
+		{
+			"id": "together",
+			"displayName": "Together AI",
+			"baseUrl": "https://api.together.ai/v1",
+			"apiFormat": "openai",
+			"envVar": "TOGETHER_API_KEY",
+			"envVarAliases": ["OPENEXPLORER_TOGETHER_KEY"],
+			"free": "limited",
+			"website": "https://together.ai",
+			"needsApiKey": true,
+			"canValidate": true,
+			"modelIdFormat": "provider-prefix",
+			"modelPrefixes": [],
+			"isPrimary": false,
+			"authStyle": "bearer",
+			"models": [
+				{
+					"id": "meta-llama/Llama-4-Scout-17B-16E",
+					"displayName": "Llama 4 Scout",
+					"contextWindow": 512000,
+					"inputPricePer1M": 0.15,
+					"outputPricePer1M": 0.6,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["llama4"]
+				},
+				{
+					"id": "deepseek-ai/DeepSeek-V3",
+					"displayName": "DeepSeek V3",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0.3,
+					"outputPricePer1M": 0.6,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "Qwen/Qwen3-Coder-480B",
+					"displayName": "Qwen3 Coder 480B",
+					"contextWindow": 262000,
+					"inputPricePer1M": 0.8,
+					"outputPricePer1M": 4.8,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+					"displayName": "Llama 3.3 70B Turbo",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0.88,
+					"outputPricePer1M": 0.88,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "Qwen/Qwen3.6-Plus",
+					"displayName": "Qwen3.6 Plus",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.5,
+					"outputPricePer1M": 3.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "deepseek-ai/DeepSeek-R1",
+					"displayName": "DeepSeek R1",
+					"contextWindow": 164000,
+					"inputPricePer1M": 0.7,
+					"outputPricePer1M": 2.19,
+					"supportsReasoning": true,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "google/gemma-4-31b-it",
+					"displayName": "Gemma 4 31B",
+					"contextWindow": 262000,
+					"inputPricePer1M": 0.14,
+					"outputPricePer1M": 0.4,
+					"supportsReasoning": true,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "mistralai/Mistral-Large-3",
+					"displayName": "Mistral Large 3",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0.5,
+					"outputPricePer1M": 3.0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				}
+			]
+		},
+
+		// ── Groq ───────────────────────────────────────────────────────
+		// Ultra-fast inference via LPU hardware. Free tier with rate limits.
+		{
+			"id": "groq",
+			"displayName": "Groq",
+			"baseUrl": "https://api.groq.com/openai/v1",
+			"apiFormat": "openai",
+			"envVar": "GROQ_API_KEY",
+			"envVarAliases": ["OPENEXPLORER_GROQ_KEY"],
+			"free": "limited",
+			"website": "https://console.groq.com",
+			"needsApiKey": true,
+			"canValidate": true,
+			"modelIdFormat": "provider-prefix",
+			"modelPrefixes": [],
+			"isPrimary": false,
+			"authStyle": "bearer",
+			"models": [
+				{
+					"id": "llama-3.1-8b-instant",
+					"displayName": "Llama 3.1 8B Instant",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0.05,
+					"outputPricePer1M": 0.08,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "llama-4-scout-17b-16e",
+					"displayName": "Llama 4 Scout",
+					"contextWindow": 512000,
+					"inputPricePer1M": 0.11,
+					"outputPricePer1M": 0.34,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "gpt-oss-120b",
+					"displayName": "GPT-OSS 120B",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0.15,
+					"outputPricePer1M": 0.6,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "qwen3-32b",
+					"displayName": "Qwen3 32B",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0.29,
+					"outputPricePer1M": 0.59,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "llama-3.3-70b-versatile",
+					"displayName": "Llama 3.3 70B",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0.59,
+					"outputPricePer1M": 0.79,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["groq70b"]
+				},
+				{
+					"id": "deepseek-r1-distill-llama-70b",
+					"displayName": "DeepSeek R1 Distill 70B",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0.75,
+					"outputPricePer1M": 0.99,
+					"supportsReasoning": true,
+					"supportsToolCalling": true
+				}
+			]
+		},
+
+		// ── DeepSeek ───────────────────────────────────────────────────
+		// Direct access to DeepSeek models. Competitive pricing.
+		{
+			"id": "deepseek",
+			"displayName": "DeepSeek",
+			"baseUrl": "https://api.deepseek.com",
+			"apiFormat": "openai",
+			"envVar": "DEEPSEEK_API_KEY",
+			"envVarAliases": ["OPENEXPLORER_DEEPSEEK_KEY"],
+			"free": "limited",
+			"website": "https://platform.deepseek.com",
+			"needsApiKey": true,
+			"canValidate": true,
+			"modelIdFormat": "provider-prefix",
+			"modelPrefixes": ["deepseek"],
+			"isPrimary": false,
+			"authStyle": "bearer",
+			"models": [
+				{
+					"id": "deepseek-v4-flash",
+					"displayName": "DeepSeek V4 Flash",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.14,
+					"outputPricePer1M": 0.28,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["ds4", "deepseek-flash"]
+				},
+				{
+					"id": "deepseek-v4-pro",
+					"displayName": "DeepSeek V4 Pro",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 1.74,
+					"outputPricePer1M": 3.48,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["ds4pro"]
+				},
+				{
+					"id": "deepseek-r1",
+					"displayName": "DeepSeek R1",
+					"contextWindow": 164000,
+					"inputPricePer1M": 0.7,
+					"outputPricePer1M": 2.19,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["r1"]
+				}
+			]
+		},
+
+		// ── Google Gemini ───────────────────────────────────────────────
+		// Direct access to Gemini models via OpenAI-compatible endpoint.
+		{
+			"id": "gemini",
+			"displayName": "Google Gemini",
+			"baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/",
+			"apiFormat": "openai",
+			"envVar": "GEMINI_API_KEY",
+			"envVarAliases": ["GOOGLE_API_KEY", "OPENEXPLORER_GEMINI_KEY"],
+			"free": "limited",
+			"website": "https://aistudio.google.com",
+			"needsApiKey": true,
+			"canValidate": true,
+			"modelIdFormat": "provider-prefix",
+			"modelPrefixes": ["gemini"],
+			"isPrimary": false,
+			"authStyle": "bearer",
+			"models": [
+				{
+					"id": "gemini-2.5-flash-lite",
+					"displayName": "Gemini 2.5 Flash Lite",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.075,
+					"outputPricePer1M": 0.3,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["flashlite"]
+				},
+				{
+					"id": "gemini-2.5-flash",
+					"displayName": "Gemini 2.5 Flash",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.15,
+					"outputPricePer1M": 0.6,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["flash"]
+				},
+				{
+					"id": "gemini-2.5-pro",
+					"displayName": "Gemini 2.5 Pro",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 1.25,
+					"outputPricePer1M": 10.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["gemini-pro"]
+				},
+				{
+					"id": "gemini-3-flash-preview",
+					"displayName": "Gemini 3 Flash",
+					"contextWindow": 1000000,
+					"inputPricePer1M": 0.5,
+					"outputPricePer1M": 3.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "gemini-3.1-pro-preview",
+					"displayName": "Gemini 3.1 Pro",
+					"contextWindow": 2000000,
+					"inputPricePer1M": 2.0,
+					"outputPricePer1M": 12.0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true
+				}
+			]
+		},
+
+		// ── Ollama (Local) ─────────────────────────────────────────────
+		// Local inference — no API key needed. Probes localhost for
+		// running models and suggests preferred downloads.
+		{
+			"id": "ollama",
+			"displayName": "Ollama (Local)",
+			"baseUrl": "http://localhost:11434",
+			"apiFormat": "ollama",
+			"envVar": "",
+			"free": true,
+			"website": "https://ollama.ai",
+			"needsApiKey": false,
+			"canValidate": false,
+			"modelIdFormat": "provider-prefix",
+			"modelPrefixes": [],
+			"isPrimary": true,
+			"authStyle": "none",
+			"localProvider": {
+				"probeUrl": "http://localhost:11434/api/tags",
+				"preferredModels": ["gemma4", "deepseek-r1", "qwen3"]
+			},
+			"models": [
+				{
+					"id": "gemma4:e4b",
+					"displayName": "Gemma 4 E4B",
+					"contextWindow": 262000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["gemma4"]
+				},
+				{
+					"id": "gemma4",
+					"displayName": "Gemma 4 31B",
+					"contextWindow": 262000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "phi4-reasoning:plus",
+					"displayName": "Phi-4 Reasoning",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": true,
+					"supportsToolCalling": false
+				},
+				{
+					"id": "deepseek-r1",
+					"displayName": "DeepSeek R1",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "qwen3-coder",
+					"displayName": "Qwen3 Coder",
+					"contextWindow": 262000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["local-coder"]
+				},
+				{
+					"id": "llama3.3:70b",
+					"displayName": "Llama 3.3 70B",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "llama4:scout",
+					"displayName": "Llama 4 Scout",
+					"contextWindow": 512000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "qwen3:32b",
+					"displayName": "Qwen3 32B",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "gemma3:27b",
+					"displayName": "Gemma 3 27B",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				},
+				{
+					"id": "phi4:14b",
+					"displayName": "Phi-4 14B",
+					"contextWindow": 128000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true
+				}
+			]
+		}
+	],
+
+	// ─── Tier Aliases ──────────────────────────────────────────────────
+	// Short-hand names that map to a "provider/model" spec.
+	// Used with --model <tier> (e.g. --model fast).
+	"tierAliases": {
+		"fast": "groq/llama-3.3-70b-versatile",
+		"smart": "deepseek/deepseek-v4-flash",
+		"best": "anthropic/claude-opus-4-7",
+		"cheap": "deepseek/deepseek-v4-flash",
+		"local": "ollama/qwen3-coder"
+	},
+
+	// ─── Model Aliases ─────────────────────────────────────────────────
+	// Short-hand names that resolve to a specific "provider/model" spec.
+	// Used with --model <alias> (e.g. --model sonnet).
+	"modelAliases": {
+		"sonnet": "anthropic/claude-sonnet-4-6",
+		"opus": "anthropic/claude-opus-4-7",
+		"haiku": "anthropic/claude-haiku-4-5",
+		"gpt5": "openai/gpt-5.4",
+		"gpt5mini": "openai/gpt-5.4-mini",
+		"o3": "openai/o3",
+		"o4mini": "openai/o4-mini",
+		"flash": "gemini/gemini-2.5-flash",
+		"r1": "deepseek/deepseek-r1",
+		"ds4": "deepseek/deepseek-v4-flash",
+		"llama4": "openrouter/meta-llama/llama-4-scout"
+	}
+}
