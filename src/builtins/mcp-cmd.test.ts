@@ -175,9 +175,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'firecrawl'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'firecrawl'));
 		expect(result.type).toBe('reconnect-server');
 		if (result.type === 'reconnect-server') {
 			expect(result.serverName).toBe('firecrawl');
@@ -414,9 +412,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'filesystem'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'filesystem'));
 		expect(result.type).toBe('reconnect-server');
 		if (result.type === 'reconnect-server') {
 			expect(result.serverName).toBe('filesystem');
@@ -448,9 +444,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'filesystem'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'filesystem'));
 		expect(result.type).toBe('message');
 		if (result.type === 'message') {
 			expect(result.content).toContain('Connected');

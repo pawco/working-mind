@@ -1,16 +1,16 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { ZodError } from 'zod';
 import pc from 'picocolors';
+import { ZodError } from 'zod';
 import { parseCommandMd } from './command-loader.js';
 import type { McpServerConfig, UserConfig } from './config.js';
 import type { McpRegistry } from './mcp/registry.js';
 import { getBuiltinPacksDir, getPacksDir, getStorePath } from './paths.js';
 import {
 	type CurationDef,
+	formatZodError,
 	type McpEnvVarDef,
 	type PackManifest,
-	formatZodError,
 	packManifestSchema,
 } from './schemas.js';
 import type {
@@ -82,7 +82,9 @@ export function readPackManifest(packDir: string): PackManifest {
 		if (err instanceof ZodError) {
 			throw new Error(formatZodError(`Invalid pack.json (${packDir})`, err));
 		}
-		throw new Error(`Failed to parse pack.json in ${packDir}: ${err instanceof Error ? err.message : String(err)}`);
+		throw new Error(
+			`Failed to parse pack.json in ${packDir}: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
 	if (!existsSync(join(packDir, manifest.prompt))) {
@@ -96,11 +98,9 @@ export function readPackManifest(packDir: string): PackManifest {
 	return manifest;
 }
 
-export function validateNoRequiredMcp(_manifest: PackManifest): void {
-}
+export function validateNoRequiredMcp(_manifest: PackManifest): void {}
 
-export function validateNoRequiredSettings(_manifest: PackManifest): void {
-}
+export function validateNoRequiredSettings(_manifest: PackManifest): void {}
 
 export function readPromptFile(packDir: string, promptPath: string): string {
 	const fullPath = join(packDir, promptPath);

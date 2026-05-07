@@ -5,27 +5,8 @@
 
 **Terminal AI agent with persistent graph memory.** Every session builds on the last. Research, reason, remember.
 
-```
-┌──────────────┬──────────────────────────────────────────┐
-│ ◈ wmind       │                                        │
-│ v0.0.1       │  ❯ What did we learn about RAG          │
-│ ──────────── │     architectures last week?            │
-│ Model        │                                        │
-│  # sonnet    │  ◆ Agent                                │
-│   openrouter │  Searching memory... Found 12 entities  │
-│   starter    │  from 3 prior sessions.                 │
-│   mcp 2/3    │                                        │
-│ ──────────── │  Key findings from your accumulated     │
-│ Session      │  knowledge:                             │
-│  4 msgs      │                                        │
-│  turn 3/20   │  1. Naive RAG → 46% accuracy            │
-│ ──────────── │  2. Hybrid RRF fusion → 71% (+25pp)     │
-│ MCP          │  3. GraphRAG → 78% on multi-hop        │
-│  * memory    │                                        │
-│  * brave     │  New from web search: Microsoft released │
-│  * firecrawl │  GraphRAG v2 last Tuesday...            │
-└──────────────┴──────────────────────────────────────────┘
-```
+
+![Working Mind Screenshot](working-mind-screenshot.png)
 
 ## The Problem
 

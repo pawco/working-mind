@@ -383,7 +383,7 @@ export class AgentRegistry {
 	switchTo(id: string): AgentInstance | undefined {
 		if (this.agents.has(id)) {
 			this.activeId = id;
-			return this.agents.get(id)!;
+			return this.agents.get(id);
 		}
 		return undefined;
 	}
@@ -393,7 +393,7 @@ export class AgentRegistry {
 		if (ids.length === 0) return undefined;
 		const idx = ids.indexOf(this.activeId || '');
 		this.activeId = ids[(idx + 1) % ids.length];
-		return this.agents.get(this.activeId!);
+		return this.agents.get(this.activeId || '');
 	}
 
 	getAll(): AgentInstance[] {

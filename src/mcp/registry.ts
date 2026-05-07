@@ -35,10 +35,7 @@ export function stripSensitiveEnvVars(
 	return result;
 }
 
-export function enrichMcpError(
-	rawMsg: string,
-	command?: string[],
-): string {
+export function enrichMcpError(rawMsg: string, command?: string[]): string {
 	const KNOWN_PACKAGES = new Set([
 		'@modelcontextprotocol/server-filesystem',
 		'@modelcontextprotocol/server-memory',
@@ -65,27 +62,46 @@ export function enrichMcpError(
 	if (command && command[0] === 'npx' && command[1] === '-y') {
 		const pkg = command[2];
 		if (pkg && !KNOWN_PACKAGES.has(pkg)) {
-			hints.push(`Package "${pkg}" is not a known MCP server. Check the package name or remove this server from config.`);
+			hints.push(
+				`Package "${pkg}" is not a known MCP server. Check the package name or remove this server from config.`,
+			);
 		}
 	}
 
 	if (rawMsg.includes('Python 3') || rawMsg.includes('python')) {
-		hints.push('This server requires Python. Install Python 3.11+ or remove the server.');
+		hints.push(
+			'This server requires Python. Install Python 3.11+ or remove the server.',
+		);
 	}
 
-	if (rawMsg.includes('E404') || rawMsg.includes('Not Found') || rawMsg.includes('not found')) {
-		hints.push('The npm package was not found. Check the package name in your config.');
+	if (
+		rawMsg.includes('E404') ||
+		rawMsg.includes('Not Found') ||
+		rawMsg.includes('not found')
+	) {
+		hints.push(
+			'The npm package was not found. Check the package name in your config.',
+		);
 	}
 
-	if (rawMsg.includes('allowed directory') || rawMsg.includes('Allowed directories')) {
-		hints.push('The filesystem server needs valid directory paths. Check $INPUT_DIR or $CWD in the command.');
+	if (
+		rawMsg.includes('allowed directory') ||
+		rawMsg.includes('Allowed directories')
+	) {
+		hints.push(
+			'The filesystem server needs valid directory paths. Check $INPUT_DIR or $CWD in the command.',
+		);
 	}
 
 	if (hints.length === 0) {
-		hints.push('Server exited unexpectedly. This usually means a missing API key, dependency, or wrong package name.');
+		hints.push(
+			'Server exited unexpectedly. This usually means a missing API key, dependency, or wrong package name.',
+		);
 	}
 
-	const shortMsg = rawMsg.includes('-32000') ? 'MCP error -32000' : 'Connection closed';
+	const shortMsg = rawMsg.includes('-32000')
+		? 'MCP error -32000'
+		: 'Connection closed';
 	return `${shortMsg} -- ${hints.join(' ')}`;
 }
 
@@ -220,7 +236,7 @@ export class McpRegistry {
 			await this.connect(name);
 		}
 
-		return this.getServerInfo(name)!;
+		return this.getServerInfo(name) as McpServerInfo;
 	}
 
 	registerServer(name: string, config: McpServerConfig): void {
@@ -353,7 +369,10 @@ export class McpRegistry {
 				conn.tools = [];
 			} else {
 				conn.status = 'error';
-				conn.error = enrichMcpError(err.message || String(err), resolvedConfig.command);
+				conn.error = enrichMcpError(
+					err.message || String(err),
+					resolvedConfig.command,
+				);
 				conn.tools = [];
 			}
 		}

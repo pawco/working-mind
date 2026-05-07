@@ -45,17 +45,23 @@ describe('PROVIDERS catalog', () => {
 	});
 
 	it('openrouter has 16 models', () => {
-		const or = PROVIDERS.find((p) => p.id === 'openrouter')!;
+		const or = PROVIDERS.find(
+			(p) => p.id === 'openrouter',
+		) as (typeof PROVIDERS)[number];
 		expect(or.models.length).toBe(16);
 	});
 
 	it('ollama has no envVar', () => {
-		const ollama = PROVIDERS.find((p) => p.id === 'ollama')!;
+		const ollama = PROVIDERS.find(
+			(p) => p.id === 'ollama',
+		) as (typeof PROVIDERS)[number];
 		expect(ollama.envVar).toBe('');
 	});
 
 	it('anthropic uses anthropic apiFormat', () => {
-		const anthropic = PROVIDERS.find((p) => p.id === 'anthropic')!;
+		const anthropic = PROVIDERS.find(
+			(p) => p.id === 'anthropic',
+		) as (typeof PROVIDERS)[number];
 		expect(anthropic.apiFormat).toBe('anthropic');
 	});
 

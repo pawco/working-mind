@@ -6,7 +6,10 @@ import { ingestCmd, listMdFiles } from './ingest-cmd.js';
 
 const TMP_DIR = join(process.cwd(), 'test-ingest-tmp');
 
-function makeCtx(args: string, overrides?: Partial<CommandContext>): CommandContext {
+function makeCtx(
+	args: string,
+	overrides?: Partial<CommandContext>,
+): CommandContext {
 	return {
 		args,
 		agent: {
@@ -57,13 +60,15 @@ describe('ingestCmd', () => {
 	it('rejects filenames with path separators', () => {
 		const r = run('../etc/passwd');
 		expect(r.type).toBe('message');
-		if (r.type === 'message') expect(r.content).toContain('Only filenames in the current directory');
+		if (r.type === 'message')
+			expect(r.content).toContain('Only filenames in the current directory');
 	});
 
 	it('rejects backslash path separators', () => {
 		const r = run('sub\\file.md');
 		expect(r.type).toBe('message');
-		if (r.type === 'message') expect(r.content).toContain('Only filenames in the current directory');
+		if (r.type === 'message')
+			expect(r.content).toContain('Only filenames in the current directory');
 	});
 
 	it('reports file not found', () => {
@@ -77,7 +82,8 @@ describe('ingestCmd', () => {
 			mcpRegistry: { getServerInfo: () => undefined } as any,
 		});
 		expect(r.type).toBe('message');
-		if (r.type === 'message') expect(r.content).toContain('Memory MCP server is not connected');
+		if (r.type === 'message')
+			expect(r.content).toContain('Memory MCP server is not connected');
 	});
 
 	it('reports empty file', () => {
@@ -107,7 +113,11 @@ describe('ingestCmd', () => {
 	});
 
 	it('returns confirm result for unconfirmed ingestion', () => {
-		writeFileSync(join(TMP_DIR, 'doc.md'), '# GDPR\nThe General Data Protection Regulation applies.', 'utf-8');
+		writeFileSync(
+			join(TMP_DIR, 'doc.md'),
+			'# GDPR\nThe General Data Protection Regulation applies.',
+			'utf-8',
+		);
 		const origCwd = process.cwd();
 		try {
 			process.chdir(TMP_DIR);
@@ -126,7 +136,11 @@ describe('ingestCmd', () => {
 	});
 
 	it('returns trigger-agent when confirmed', () => {
-		writeFileSync(join(TMP_DIR, 'doc.md'), '# GDPR\nThe General Data Protection Regulation applies.', 'utf-8');
+		writeFileSync(
+			join(TMP_DIR, 'doc.md'),
+			'# GDPR\nThe General Data Protection Regulation applies.',
+			'utf-8',
+		);
 		const origCwd = process.cwd();
 		try {
 			process.chdir(TMP_DIR);
@@ -188,21 +202,26 @@ describe('ingestCmd', () => {
 	});
 
 	it('confirm result includes file size info', () => {
-		const content = '# Test\n' + 'x'.repeat(500);
+		const content = `# Test\n${'x'.repeat(500)}`;
 		writeFileSync(join(TMP_DIR, 'doc.md'), content, 'utf-8');
 		const origCwd = process.cwd();
 		try {
 			process.chdir(TMP_DIR);
 			const r = run('doc.md');
 			expect(r.type).toBe('confirm');
-			if (r.type === 'confirm') expect(r.message).toContain(`${content.length} chars`);
+			if (r.type === 'confirm')
+				expect(r.message).toContain(`${content.length} chars`);
 		} finally {
 			process.chdir(origCwd);
 		}
 	});
 
 	it('confirmed ingestion sets extraction directive with filename', () => {
-		writeFileSync(join(TMP_DIR, 'report.md'), '# Report\nSome content here.', 'utf-8');
+		writeFileSync(
+			join(TMP_DIR, 'report.md'),
+			'# Report\nSome content here.',
+			'utf-8',
+		);
 		const origCwd = process.cwd();
 		try {
 			process.chdir(TMP_DIR);

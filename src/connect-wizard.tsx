@@ -17,8 +17,8 @@ import {
 import {
 	cacheApiKey,
 	type LocalFastProbeResult,
-	probeLocalFast,
 	type OllamaModelInfo,
+	probeLocalFast,
 	probeOllama,
 	resolveApiKey,
 } from './sdk/provider-resolve.js';
@@ -110,7 +110,9 @@ function providerHint(
 	const suffix = hasKey ? ' \u2713 available' : '';
 	let hint: string;
 	if (isLocalFast) {
-		hint = localFastState.running ? `Running (port ${localFastState.port})` : 'Not running';
+		hint = localFastState.running
+			? `Running (port ${localFastState.port})`
+			: 'Not running';
 	} else if (isOllama) {
 		hint = ollamaRunning ? `${p.models.length} models curated` : 'Not running';
 	} else if (p.free === true) {
@@ -266,7 +268,8 @@ export const ConnectWizard = forwardRef<
 								id: 'error',
 								provider,
 								modelId: '',
-								error: 'Local Fast is not running. Start it with: wmind-serve start',
+								error:
+									'Local Fast is not running. Start it with: wmind-serve start',
 							});
 						}
 					} else if (!provider.needsApiKey) {
@@ -463,7 +466,15 @@ export const ConnectWizard = forwardRef<
 				return;
 			}
 		},
-		[step, userConfig, ollamaState, localFastState, onDone, doValidate, finishConnect],
+		[
+			step,
+			userConfig,
+			ollamaState,
+			localFastState,
+			onDone,
+			doValidate,
+			finishConnect,
+		],
 	);
 
 	const handlePaste = useCallback(
@@ -501,7 +512,10 @@ export const ConnectWizard = forwardRef<
 		h(
 			'box',
 			{ marginTop: 1 },
-			h('text', { dimColor: true, content: 'Esc = back \u00b7 Enter = confirm' }),
+			h('text', {
+				dimColor: true,
+				content: 'Esc = back \u00b7 Enter = confirm',
+			}),
 		),
 	);
 });
@@ -520,7 +534,8 @@ function buildModelList(
 	mergedModels?: ModelEntry[],
 ): ModelListEntry[] {
 	if (provider.id === 'local-fast') {
-		const models = localFastModels.length > 0 ? localFastModels : provider.models;
+		const models =
+			localFastModels.length > 0 ? localFastModels : provider.models;
 		return models.map((m) => ({
 			type: 'model' as const,
 			modelId: m.id,
@@ -596,8 +611,15 @@ function renderStep(
 			'box',
 			{ flexDirection: 'column' },
 			h('text', { bold: true, fg: 'cyan', content: 'Connect a Provider' }),
-			h('text', { dimColor: true, content: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' }),
-			h('text', { dimColor: true, content: '\u2191\u2193 navigate \u00b7 Enter select' }),
+			h('text', {
+				dimColor: true,
+				content:
+					'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+			}),
+			h('text', {
+				dimColor: true,
+				content: '\u2191\u2193 navigate \u00b7 Enter select',
+			}),
 			h(
 				'box',
 				{ flexDirection: 'column', marginTop: 1 },
@@ -647,7 +669,12 @@ function renderStep(
 	}
 
 	if (s.id === 'model-select') {
-		const models = buildModelList(s.provider, s.ollamaModels, s.localFastModels, s.mergedModels);
+		const models = buildModelList(
+			s.provider,
+			s.ollamaModels,
+			s.localFastModels,
+			s.mergedModels,
+		);
 		return h(
 			'box',
 			{ flexDirection: 'column' },
@@ -656,7 +683,11 @@ function renderStep(
 				fg: 'cyan',
 				content: `Pick a Model (${s.provider.displayName})`,
 			}),
-			h('text', { dimColor: true, content: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' }),
+			h('text', {
+				dimColor: true,
+				content:
+					'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+			}),
 			h('text', {
 				dimColor: true,
 				content: '\u2191\u2193 navigate \u00b7 Enter select \u00b7 Esc back',
@@ -702,7 +733,11 @@ function renderStep(
 			'box',
 			{ flexDirection: 'column' },
 			h('text', { bold: true, fg: 'cyan', content: 'Enter API Key' }),
-			h('text', { dimColor: true, content: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' }),
+			h('text', {
+				dimColor: true,
+				content:
+					'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+			}),
 			h('text', {
 				dimColor: true,
 				content: `Provider: ${s.provider.displayName}`,
@@ -730,7 +765,11 @@ function renderStep(
 			'box',
 			{ flexDirection: 'column' },
 			h('text', { bold: true, fg: 'cyan', content: 'Validating Connection' }),
-			h('text', { dimColor: true, content: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' }),
+			h('text', {
+				dimColor: true,
+				content:
+					'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+			}),
 			h('text', {
 				fg: 'yellow',
 				content: `\u23f3 Connecting to ${s.provider.displayName}...`,
@@ -747,7 +786,11 @@ function renderStep(
 			'box',
 			{ flexDirection: 'column' },
 			h('text', { bold: true, fg: 'green', content: 'Connected!' }),
-			h('text', { dimColor: true, content: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' }),
+			h('text', {
+				dimColor: true,
+				content:
+					'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+			}),
 			h('text', { fg: 'green', content: `\u2713 ${s.provider.displayName}` }),
 			h(
 				'box',
@@ -783,13 +826,20 @@ function renderStep(
 			'box',
 			{ flexDirection: 'column' },
 			h('text', { bold: true, fg: 'red', content: 'Connection Failed' }),
-			h('text', { dimColor: true, content: '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500' }),
+			h('text', {
+				dimColor: true,
+				content:
+					'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+			}),
 			h('text', { fg: 'red', content: `\u2717 ${s.provider.displayName}` }),
 			h('text', { fg: 'red', content: s.error }),
 			h(
 				'box',
 				{ marginTop: 1 },
-				h('text', { dimColor: true, content: 'Press Enter to re-enter key, Esc to cancel' }),
+				h('text', {
+					dimColor: true,
+					content: 'Press Enter to re-enter key, Esc to cancel',
+				}),
 			),
 		);
 	}

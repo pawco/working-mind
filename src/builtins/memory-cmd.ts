@@ -9,8 +9,6 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { MemoryGraph } from '../schemas.js';
-import { parseMemoryGraph } from '../schemas.js';
 import {
 	ensureMemoriesDir,
 	filterGraph,
@@ -26,6 +24,8 @@ import {
 	toTreeView,
 } from '../memory/render.js';
 import { getExportsDir, getStorePath } from '../paths.js';
+import type { MemoryGraph } from '../schemas.js';
+import { parseMemoryGraph } from '../schemas.js';
 import type {
 	CommandContext,
 	CommandResult,

@@ -1,13 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type {
-	MemoryEntity,
-	MemoryGraph,
-	MemoryRelation,
-} from '../schemas.js';
-import { parseMemoryGraph } from '../schemas.js';
 import { getActiveStoreName, parseMemoryJsonl } from '../memory/render.js';
 import { getStorePath } from '../paths.js';
+import type { MemoryEntity, MemoryGraph, MemoryRelation } from '../schemas.js';
+import { parseMemoryGraph } from '../schemas.js';
 import type {
 	CommandContext,
 	CommandResult,

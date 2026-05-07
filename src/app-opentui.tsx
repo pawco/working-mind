@@ -239,7 +239,7 @@ function MultiAgentApp({
 				.filter((cmd) => cmd.allowedTools && cmd.allowedTools.length > 0)
 				.map((cmd) => ({
 					source: `/${cmd.name}`,
-					tools: cmd.allowedTools!,
+					tools: cmd.allowedTools as string[],
 				}));
 			const warnings = mcpRegistry.validateToolReferences(allowedToolsLists);
 			for (const w of warnings) {
@@ -249,7 +249,7 @@ function MultiAgentApp({
 		return () => {
 			cancelled = true;
 		};
-	}, [mcpRegistry, registry]);
+	}, [mcpRegistry, registry, commandRegistry.getAll]);
 
 	const activateSkill = useCallback(
 		(name: string): string | null => {
@@ -317,7 +317,7 @@ function MultiAgentApp({
 				if (model.includes('/')) {
 					const providerId = model.split('/')[0];
 					const provider = findProvider(providerId);
-					if (provider && provider.needsApiKey) {
+					if (provider?.needsApiKey) {
 						const apiKey = resolveApiKey(provider, config.userConfig);
 						if (!apiKey) {
 							resolveApiKeyAsync(provider, config.userConfig).then((key) => {
@@ -628,13 +628,13 @@ function MultiAgentApp({
 
 					if (result.allowedTools && result.allowedTools.length > 0) {
 						const filtered = agent.tools.filter((t: any) =>
-							result.allowedTools!.includes(t.name),
+							result.allowedTools?.includes(t.name),
 						);
 						if (filtered.length > 0) {
 							agent.tools = filtered;
 						} else {
 							const availableNames = agent.tools.map((t: any) => t.name);
-							const missingNames = result.allowedTools!.filter(
+							const missingNames = result.allowedTools?.filter(
 								(n: string) => !availableNames.includes(n),
 							);
 							if (agent.currentTask && missingNames.length > 0) {

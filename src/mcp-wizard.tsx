@@ -181,7 +181,12 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 			(
 				name: string,
 				envSoFar: Record<string, string>,
-				queue: { name: string; label: string; required: boolean; sensitive?: boolean }[],
+				queue: {
+					name: string;
+					label: string;
+					required: boolean;
+					sensitive?: boolean;
+				}[],
 			) => {
 				while (queue.length > 0 && process.env[queue[0].name]) {
 					const val = process.env[queue[0].name];

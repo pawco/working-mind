@@ -236,7 +236,10 @@ export async function runAgent(
 				const validation = tool.argSchema.safeParse(args);
 				if (!validation.success) {
 					const { formatZodError } = await import('../schemas.js');
-					const msg = formatZodError(`Invalid arguments for ${tc.name}`, validation.error);
+					const msg = formatZodError(
+						`Invalid arguments for ${tc.name}`,
+						validation.error,
+					);
 					messages.push(adapter.buildToolResult(tc.id, msg, true));
 					config.onToolResult?.(tc.name, { error: msg, isError: true });
 					continue;

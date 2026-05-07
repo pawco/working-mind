@@ -11,11 +11,7 @@ import {
 	getDefaultMemoryPath,
 	getMemoriesDir,
 } from '../paths.js';
-import type {
-	MemoryEntity,
-	MemoryGraph,
-	MemoryRelation,
-} from '../schemas.js';
+import type { MemoryEntity, MemoryGraph, MemoryRelation } from '../schemas.js';
 import { generateIndexMarkdown } from './auto-link.js';
 
 export type { MemoryEntity, MemoryGraph, MemoryRelation };

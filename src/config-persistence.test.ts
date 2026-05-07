@@ -336,10 +336,10 @@ describe('config persistence', () => {
 			}
 		});
 
-	it('returns empty string for providers without API key requirement', () => {
-		const provider = findProvider('ollama');
-		if (!provider) return;
-		expect(resolveApiKey(provider, undefined)).toBe('');
-	});
+		it('returns empty string for providers without API key requirement', () => {
+			const provider = findProvider('ollama');
+			if (!provider) return;
+			expect(resolveApiKey(provider, undefined)).toBe('');
+		});
 	});
 });

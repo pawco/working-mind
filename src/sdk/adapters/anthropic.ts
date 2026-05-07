@@ -3,8 +3,7 @@ import type { ProviderConfig, StreamEvent } from '../provider.js';
 import { parseSSE } from '../sse.js';
 import { toolDefToAnthropicFormat } from '../tool.js';
 
-const DEBUG =
-	typeof process !== 'undefined' && process.env.WMIND_DEBUG === '1';
+const DEBUG = typeof process !== 'undefined' && process.env.WMIND_DEBUG === '1';
 
 export class AnthropicProviderError extends Error {
 	constructor(

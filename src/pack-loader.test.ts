@@ -238,7 +238,10 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{ mcpServers: {} } as any,
+		);
 		expect(configs.search.command).toEqual(['npx', '-y', 'some-mcp-server']);
 		expect(configs.search.type).toBe('local');
 	});
@@ -258,7 +261,12 @@ describe('buildMcpConfigs', () => {
 			manifest as any,
 			{
 				mcpServers: {
-					search: { type: 'local', command: ['npx', 'existing'], env: { API_KEY: 'saved-key' }, enabled: true },
+					search: {
+						type: 'local',
+						command: ['npx', 'existing'],
+						env: { API_KEY: 'saved-key' },
+						enabled: true,
+					},
 				},
 			} as any,
 		);
@@ -288,7 +296,10 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{ mcpServers: {} } as any,
+		);
 		expect(configs.search.env?.TEST_PACK_API_KEY).toBe('test-key-123');
 		delete process.env.TEST_PACK_API_KEY;
 	});
@@ -310,7 +321,10 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{ mcpServers: {} } as any,
+		);
 		expect(configs.search.enabled).toBe(false);
 		expect(configs.memory.enabled).toBe(true);
 		expect(configs.search.requiredEnvVars).toBeDefined();
@@ -333,7 +347,10 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{ mcpServers: {} } as any,
+		);
 		expect(configs.search.enabled).toBe(true);
 		expect(configs.search.env?.TEST_REQ_KEY).toBe('present');
 		delete process.env.TEST_REQ_KEY;
@@ -351,7 +368,10 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{ mcpServers: {} } as any,
+		);
 		expect(configs.filesystem.enabled).toBe(false);
 		expect(configs.filesystem.pathPrompt).toBe('Which directory to scan?');
 		expect(configs.filesystem.requiredEnvVars).toBeDefined();
@@ -376,7 +396,10 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{ mcpServers: {} } as any,
+		);
 		expect(configs.filesystem.enabled).toBe(true);
 		expect(configs.filesystem.env?.INPUT_DIR).toBe('/tmp/test-scan');
 		delete process.env.INPUT_DIR;
@@ -393,7 +416,10 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{ mcpServers: {} } as any,
+		);
 		expect(configs.filesystem.requiredEnvVars).toBeUndefined();
 	});
 
@@ -409,7 +435,10 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{ mcpServers: {} } as any,
+		);
 		expect(configs.memory.requiredEnvVars).toBeUndefined();
 		expect(configs.memory.enabled).toBe(true);
 	});
@@ -425,7 +454,11 @@ describe('buildMcpConfigs', () => {
 				search: {
 					package: 'some-mcp-server',
 					env: {
-						BRAVE_API_KEY: { setting: 'BRAVE_API_KEY', sensitive: true, required: false },
+						BRAVE_API_KEY: {
+							setting: 'BRAVE_API_KEY',
+							sensitive: true,
+							required: false,
+						},
 					},
 				},
 			},
@@ -435,7 +468,12 @@ describe('buildMcpConfigs', () => {
 			manifest as any,
 			{
 				mcpServers: {
-					search: { type: 'local', command: ['npx', 'search'], env: { BRAVE_API_KEY: 'old-stale-key' }, enabled: true },
+					search: {
+						type: 'local',
+						command: ['npx', 'search'],
+						env: { BRAVE_API_KEY: 'old-stale-key' },
+						enabled: true,
+					},
 				},
 			} as any,
 		);
@@ -453,7 +491,11 @@ describe('buildMcpConfigs', () => {
 				search: {
 					package: 'some-mcp-server',
 					env: {
-						BRAVE_API_KEY: { setting: 'BRAVE_API_KEY', sensitive: true, required: false },
+						BRAVE_API_KEY: {
+							setting: 'BRAVE_API_KEY',
+							sensitive: true,
+							required: false,
+						},
 					},
 				},
 			},
@@ -463,7 +505,12 @@ describe('buildMcpConfigs', () => {
 			manifest as any,
 			{
 				mcpServers: {
-					search: { type: 'local', command: ['npx', 'search'], env: { BRAVE_API_KEY: 'saved-key' }, enabled: true },
+					search: {
+						type: 'local',
+						command: ['npx', 'search'],
+						env: { BRAVE_API_KEY: 'saved-key' },
+						enabled: true,
+					},
 				},
 			} as any,
 		);
@@ -524,9 +571,7 @@ describe('loadPack', () => {
 		expect((loaded.manifest as any).mcpServers['brave-search'].required).toBe(
 			false,
 		);
-		expect((loaded.manifest as any).mcpServers['firecrawl'].required).toBe(
-			false,
-		);
+		expect((loaded.manifest as any).mcpServers.firecrawl.required).toBe(false);
 	});
 });
 
@@ -695,7 +740,7 @@ describe('readCommands', () => {
 				description: 'Pack with commands',
 				prompt: 'prompt.md',
 				commands: {
-					'analyze': 'commands/analyze.md',
+					analyze: 'commands/analyze.md',
 				},
 			},
 			{
@@ -721,7 +766,16 @@ Analyze $ARGUMENTS deeply.
 
 	it('returns empty array when no commands', () => {
 		const dir = join(TMP, 'no-cmds');
-		writePack(dir, { name: 'nocmd', version: '0.1.0', description: 'No cmds', prompt: 'prompt.md' }, { 'prompt.md': 'Test' });
+		writePack(
+			dir,
+			{
+				name: 'nocmd',
+				version: '0.1.0',
+				description: 'No cmds',
+				prompt: 'prompt.md',
+			},
+			{ 'prompt.md': 'Test' },
+		);
 		const commands = readCommands(dir, readPackManifest(dir));
 		expect(commands).toEqual([]);
 	});
@@ -735,7 +789,7 @@ Analyze $ARGUMENTS deeply.
 				version: '0.1.0',
 				description: 'Mismatch',
 				prompt: 'prompt.md',
-				commands: { 'analyze': 'commands/analyze.md' },
+				commands: { analyze: 'commands/analyze.md' },
 			},
 			{
 				'prompt.md': 'Test',
@@ -749,7 +803,9 @@ Oops.
 			},
 		);
 
-		expect(() => readCommands(dir, readPackManifest(dir))).toThrow(/name="wrong-name".*"analyze"/);
+		expect(() => readCommands(dir, readPackManifest(dir))).toThrow(
+			/name="wrong-name".*"analyze"/,
+		);
 	});
 
 	it('throws when command file missing', () => {
@@ -761,12 +817,14 @@ Oops.
 				version: '0.1.0',
 				description: 'Missing',
 				prompt: 'prompt.md',
-				commands: { 'analyze': 'commands/analyze.md' },
+				commands: { analyze: 'commands/analyze.md' },
 			},
 			{ 'prompt.md': 'Test' },
 		);
 
-		expect(() => readCommands(dir, readPackManifest(dir))).toThrow(/does not exist/);
+		expect(() => readCommands(dir, readPackManifest(dir))).toThrow(
+			/does not exist/,
+		);
 	});
 
 	it('creates trigger-agent handler when result: trigger-agent', async () => {
@@ -778,7 +836,7 @@ Oops.
 				version: '0.1.0',
 				description: 'Trigger',
 				prompt: 'prompt.md',
-				commands: { 'dive': 'commands/dive.md' },
+				commands: { dive: 'commands/dive.md' },
 			},
 			{
 				'prompt.md': 'Test',
@@ -794,7 +852,7 @@ Dive into $ARGUMENTS now.
 		);
 
 		const commands = readCommands(dir, readPackManifest(dir));
-		const result = await commands[0].handler!({
+		const result = await commands[0].handler?.({
 			args: 'quantum computing',
 			agent: { messages: [], id: 'test', name: 'test-agent' },
 			config: {} as any,
@@ -815,7 +873,7 @@ Dive into $ARGUMENTS now.
 				version: '0.1.0',
 				description: 'Msg',
 				prompt: 'prompt.md',
-				commands: { 'info': 'commands/info.md' },
+				commands: { info: 'commands/info.md' },
 			},
 			{
 				'prompt.md': 'Test',
@@ -830,7 +888,7 @@ Info about $ARGUMENTS.
 		);
 
 		const commands = readCommands(dir, readPackManifest(dir));
-		const result = await commands[0].handler!({
+		const result = await commands[0].handler?.({
 			args: 'test-topic',
 			agent: { messages: [], id: 'test', name: 'test-agent' },
 			config: {} as any,

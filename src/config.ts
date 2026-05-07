@@ -6,27 +6,27 @@ import {
 	writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
-import { z, ZodError } from 'zod';
 import stripJsonComments from 'strip-json-comments';
+import type { z } from 'zod';
 
 import { getConfigDir as resolveConfigDir } from './paths.js';
 import {
 	type CustomProviderEntry,
+	formatZodError,
 	type McpEnvVarDef,
 	type McpServerConfig,
+	partialUserConfigSchema,
 	type UserConfig,
 	type UserProviderConfig,
-	formatZodError,
-	partialUserConfigSchema,
 } from './schemas.js';
 import { loadProviders } from './sdk/provider-loader.js';
 
 export type {
-	UserConfig,
-	UserProviderConfig,
 	CustomProviderEntry,
 	McpEnvVarDef,
 	McpServerConfig,
+	UserConfig,
+	UserProviderConfig,
 };
 
 const CONFIG_DIR = resolveConfigDir();

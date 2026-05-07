@@ -25,7 +25,11 @@ describe('CommandResult confirm variant', () => {
 			{ type: 'trigger-agent', content: 'run' },
 			{ type: 'trigger-agent', content: 'run', allowedTools: ['tool1'] },
 			{ type: 'reconnect-memory-store', storeName: 'default' },
-			{ type: 'reconnect-memory-store', storeName: 'default', deletedStore: 'old' },
+			{
+				type: 'reconnect-memory-store',
+				storeName: 'default',
+				deletedStore: 'old',
+			},
 			{ type: 'open-memory-wizard' },
 			{ type: 'add-pack-agent', packName: 'starter' },
 			{ type: 'confirm', message: 'msg', command: 'cmd', args: 'args' },

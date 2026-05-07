@@ -20,7 +20,8 @@ const mcpEnvDefSchema = z.object({
 	required: z
 		.boolean()
 		.refine((v) => v !== true, {
-			error: 'All MCP env settings must be optional (required: false or omitted)',
+			error:
+				'All MCP env settings must be optional (required: false or omitted)',
 		})
 		.optional(),
 	label: z.string().optional(),
@@ -150,9 +151,7 @@ const userConfigSchema = z.object({
 				.optional(),
 		})
 		.optional(),
-	customProviders: z
-		.record(z.string(), customProviderEntrySchema)
-		.optional(),
+	customProviders: z.record(z.string(), customProviderEntrySchema).optional(),
 	mcpServers: z.record(z.string(), mcpServerConfigSchema).optional(),
 	lastMemoryStore: z.string().optional(),
 });
@@ -267,9 +266,7 @@ export function parseMemoryGraph(raw: unknown): MemoryGraph {
 	return memoryGraphSchema.parse(raw);
 }
 
-export function safeParseMemoryGraph(
-	raw: unknown,
-): MemoryGraph | null {
+export function safeParseMemoryGraph(raw: unknown): MemoryGraph | null {
 	try {
 		return parseMemoryGraph(raw);
 	} catch {
@@ -277,7 +274,15 @@ export function safeParseMemoryGraph(
 	}
 }
 
-export { sessionDataSchema, memoryGraphSchema, providersDataSchema, providerEntrySchema, modelEntrySchema, mcpServerConfigSchema, permissionLevelSchema };
+export {
+	mcpServerConfigSchema,
+	memoryGraphSchema,
+	modelEntrySchema,
+	permissionLevelSchema,
+	providerEntrySchema,
+	providersDataSchema,
+	sessionDataSchema,
+};
 
 export function formatZodError(context: string, error: z.ZodError): string {
 	const issues = error.issues

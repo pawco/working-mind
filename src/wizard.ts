@@ -12,8 +12,8 @@ import {
 import {
 	cacheApiKey,
 	type LocalFastProbeResult,
-	probeLocalFast,
 	type OllamaModelInfo,
+	probeLocalFast,
 	probeOllama,
 	resolveApiKey,
 	resolveOllamaModelName,
@@ -24,7 +24,10 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 	clack.intro(pc.bgCyan(pc.black(' Working Mind -- First Run Setup ')));
 
-	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
+	const [ollama, localFast] = await Promise.all([
+		probeOllama(),
+		probeLocalFast(),
+	]);
 
 	const primaryProviders = getPrimaryProviders();
 	const otherProviders = getOtherProviders();
@@ -48,9 +51,13 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 		let hint: string;
 		if (isLocalFast) {
-			hint = localFast.running ? `Running (port ${localFast.port})` : 'Not running';
+			hint = localFast.running
+				? `Running (port ${localFast.port})`
+				: 'Not running';
 		} else if (isOllama) {
-			hint = ollama.running ? `${ollama.models.length} models pulled` : 'Not running';
+			hint = ollama.running
+				? `${ollama.models.length} models pulled`
+				: 'Not running';
 		} else if (p.free === true) {
 			hint = 'Free';
 		} else if (p.free === 'limited') {
@@ -223,12 +230,14 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 	writeUserConfig(config);
 	clack.log.success(
-		`Config written to ${pc.dim(getConfigDir() + '/config.jsonc')}`,
+		`Config written to ${pc.dim(`${getConfigDir()}/config.jsonc`)}`,
 	);
 
 	if (provider.id === 'local-fast') {
 		if (localFast.running) {
-			clack.log.success(`Using Local Fast: ${pc.cyan(selectedModelId)} on port ${localFast.port}`);
+			clack.log.success(
+				`Using Local Fast: ${pc.cyan(selectedModelId)} on port ${localFast.port}`,
+			);
 		} else {
 			clack.log.warn('Local Fast not running. Start it: wmind-serve start');
 		}
@@ -365,7 +374,10 @@ async function selectOllamaModel(
 
 export async function listProviders(): Promise<void> {
 	const config = loadUserConfig();
-	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
+	const [ollama, localFast] = await Promise.all([
+		probeOllama(),
+		probeLocalFast(),
+	]);
 
 	console.log(pc.bold('\nAvailable Providers:\n'));
 
@@ -410,7 +422,10 @@ export async function listProviders(): Promise<void> {
 
 export async function listModels(providerId?: string): Promise<void> {
 	const config = loadUserConfig();
-	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
+	const [ollama, localFast] = await Promise.all([
+		probeOllama(),
+		probeLocalFast(),
+	]);
 
 	if (providerId) {
 		const provider = PROVIDERS.find((p) => p.id === providerId);
@@ -436,9 +451,7 @@ export async function listModels(providerId?: string): Promise<void> {
 				: !!resolveApiKey(p, config),
 	);
 	if (available.length === 0) {
-		console.log(
-			pc.dim('No providers configured. Run: wmind --configure'),
-		);
+		console.log(pc.dim('No providers configured. Run: wmind --configure'));
 		return;
 	}
 
@@ -469,7 +482,9 @@ function printLocalFastModels(
 		const features = [
 			m.supportsReasoning ? pc.cyan('think') : '',
 			m.supportsToolCalling ? pc.green('tools') : '',
-		].filter(Boolean).join(' ');
+		]
+			.filter(Boolean)
+			.join(' ');
 		console.log(
 			`  ${pc.bold(m.id.padEnd(40))} Free (local)  ${ctx.padEnd(8)} ${features}`,
 		);

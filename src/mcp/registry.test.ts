@@ -150,10 +150,10 @@ describe('substituteCommandVars', () => {
 	});
 
 	it('resolves $PACK_DIR from config', () => {
-		const result = substituteCommandVars(
-			['npx', '-y', 'server', '$PACK_DIR'],
-			{ ...baseConfig, packDir: '/packs/explorer' },
-		);
+		const result = substituteCommandVars(['npx', '-y', 'server', '$PACK_DIR'], {
+			...baseConfig,
+			packDir: '/packs/explorer',
+		});
 		expect(result.args).toEqual(['npx', '-y', 'server', '/packs/explorer']);
 		expect(result.unresolvedVars).toEqual([]);
 	});
@@ -178,28 +178,31 @@ describe('substituteCommandVars', () => {
 
 describe('enrichMcpError', () => {
 	it('detects unknown npm package on -32000', () => {
-		const msg = enrichMcpError(
-			'MCP error -32000: Connection closed',
-			['npx', '-y', 'fs-mcp'],
-		);
+		const msg = enrichMcpError('MCP error -32000: Connection closed', [
+			'npx',
+			'-y',
+			'fs-mcp',
+		]);
 		expect(msg).toContain('not a known MCP server');
 		expect(msg).toContain('fs-mcp');
 	});
 
 	it('detects unknown custom package', () => {
-		const msg = enrichMcpError(
-			'MCP error -32000: Connection closed',
-			['npx', '-y', 'custom-mcp'],
-		);
+		const msg = enrichMcpError('MCP error -32000: Connection closed', [
+			'npx',
+			'-y',
+			'custom-mcp',
+		]);
 		expect(msg).toContain('not a known MCP server');
 		expect(msg).toContain('custom-mcp');
 	});
 
 	it('does not flag known packages', () => {
-		const msg = enrichMcpError(
-			'MCP error -32000: Connection closed',
-			['npx', '-y', '@modelcontextprotocol/server-memory'],
-		);
+		const msg = enrichMcpError('MCP error -32000: Connection closed', [
+			'npx',
+			'-y',
+			'@modelcontextprotocol/server-memory',
+		]);
 		expect(msg).not.toContain('not a known MCP server');
 		expect(msg).toContain('missing API key');
 	});
@@ -233,7 +236,12 @@ describe('stripSensitiveEnvVars', () => {
 				env: { BRAVE_API_KEY: 'real-key-abc', OTHER_VAR: 'keep-me' },
 				enabled: true,
 				requiredEnvVars: [
-					{ name: 'BRAVE_API_KEY', label: 'API Key', required: false, sensitive: true },
+					{
+						name: 'BRAVE_API_KEY',
+						label: 'API Key',
+						required: false,
+						sensitive: true,
+					},
 					{ name: 'OTHER_VAR', label: 'Other', required: false },
 				],
 			},

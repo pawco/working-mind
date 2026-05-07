@@ -26,8 +26,7 @@ export const MCP_TOOL_NAMES: Record<string, Record<string, string>> = {
 		edit_file: 'mcp__filesystem__edit_file',
 		create_directory: 'mcp__filesystem__create_directory',
 		list_directory: 'mcp__filesystem__list_directory',
-		list_directory_with_details:
-			'mcp__filesystem__list_directory_with_details',
+		list_directory_with_details: 'mcp__filesystem__list_directory_with_details',
 		directory_tree: 'mcp__filesystem__directory_tree',
 		move_file: 'mcp__filesystem__move_file',
 		search_files: 'mcp__filesystem__search_files',
@@ -66,7 +65,9 @@ export function getNamespacedToolName(
 	serverKey: string,
 	toolName: string,
 ): string {
-	return MCP_TOOL_NAMES[serverKey]?.[toolName] ?? `mcp__${serverKey}__${toolName}`;
+	return (
+		MCP_TOOL_NAMES[serverKey]?.[toolName] ?? `mcp__${serverKey}__${toolName}`
+	);
 }
 
 export function validateToolReference(
@@ -78,7 +79,10 @@ export function validateToolReference(
 	if (toolRef.startsWith('mcp__') && toolRef.endsWith('*')) {
 		const prefix = toolRef.slice(0, -1);
 		const hasMatch = connectedTools.some((t) => t.startsWith(prefix));
-		return { valid: hasMatch, suggestion: hasMatch ? undefined : 'no matching tools for wildcard' };
+		return {
+			valid: hasMatch,
+			suggestion: hasMatch ? undefined : 'no matching tools for wildcard',
+		};
 	}
 
 	const parts = toolRef.split('__');

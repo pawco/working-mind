@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { AgentRegistry, type McpToolProvider } from './registry.js';
+import {
+	type AgentInstance,
+	AgentRegistry,
+	type McpToolProvider,
+} from './registry.js';
 import type { ToolDef, ToolPack } from './sdk/tool.js';
 
 const mockPack: ToolPack = {
@@ -187,13 +191,13 @@ describe('packSystemPrompt on AgentInstance', () => {
 	it('rebuildSystemPrompt uses packSystemPrompt instead of default fallback', () => {
 		const registry = new AgentRegistry();
 		registry.setPacks([mockPack]);
-		const agent = registry.createAgent({
+		const _agent = registry.createAgent({
 			name: 'Rebuild',
 			model: 'openai/gpt-4o',
 			systemPromptOverride: 'My custom pack prompt {{AVAILABLE_TOOLS}}',
 		});
 		registry.setPersona('viewer');
-		const after = registry.getActive()!;
+		const after = registry.getActive() as AgentInstance;
 		expect(after.systemPrompt).toContain('My custom pack prompt');
 		expect(after.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 		expect(after.systemPrompt).toContain('- read');
@@ -206,7 +210,7 @@ describe('replaceAvailableTools in setCustomPrompt', () => {
 		registry.setPacks([mockPack]);
 		registry.createAgent({ name: 'Custom', model: 'openai/gpt-4o' });
 		registry.setCustomPrompt('My custom prompt with {{AVAILABLE_TOOLS}}');
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 		expect(agent.systemPrompt).toContain('- read');
 		expect(agent.systemPrompt).toContain('- write');
@@ -216,7 +220,7 @@ describe('replaceAvailableTools in setCustomPrompt', () => {
 		const registry = new AgentRegistry();
 		registry.createAgent({ name: 'CustomEmpty', model: 'openai/gpt-4o' });
 		registry.setCustomPrompt('My prompt with {{AVAILABLE_TOOLS}} here');
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 		expect(agent.systemPrompt).toContain('reasoning-only');
 	});
@@ -237,7 +241,7 @@ describe('replaceAvailableTools in rebuildSystemPrompt', () => {
 		registry.setPacks([packWithPlaceholder]);
 		registry.createAgent({ name: 'Persona', model: 'openai/gpt-4o' });
 		registry.setPersona('viewer');
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 		expect(agent.systemPrompt).toContain('- read');
 	});
@@ -247,7 +251,7 @@ describe('replaceAvailableTools in rebuildSystemPrompt', () => {
 		registry.setPacks([mockPack]);
 		registry.createAgent({ name: 'NoPlace', model: 'openai/gpt-4o' });
 		registry.setPersona('viewer');
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 		expect(agent.systemPrompt).toContain('Read-only mode');
 	});
@@ -256,7 +260,7 @@ describe('replaceAvailableTools in rebuildSystemPrompt', () => {
 		const registry = new AgentRegistry();
 		registry.setPacks([mockPack]);
 		registry.createAgent({ name: 'Skill', model: 'openai/gpt-4o' });
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 	});
 });
@@ -308,7 +312,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 			systemPromptOverride: 'Starter prompt {{AVAILABLE_TOOLS}}',
 		});
 
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(4);
 		expect(agent.tools.map((t) => t.name)).toContain(
 			'mcp__memory__search_nodes',
@@ -333,7 +337,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 			systemPromptOverride: 'Starter prompt {{AVAILABLE_TOOLS}}',
 		});
 
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 		expect(agent.systemPrompt).toContain('- mcp__memory__search_nodes');
 		expect(agent.systemPrompt).toContain(
@@ -363,7 +367,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 			systemPromptOverride: 'Limited prompt {{AVAILABLE_TOOLS}}',
 		});
 
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(2);
 		expect(agent.tools.every((t) => t.mcpServer === 'memory')).toBe(true);
 		expect(agent.tools.map((t) => t.name)).not.toContain(
@@ -397,7 +401,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 			systemPromptOverride: 'A prompt {{AVAILABLE_TOOLS}}',
 		});
 
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.tools.map((t) => t.name)).toContain(
 			'mcp__memory__search_nodes',
 		);
@@ -419,7 +423,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 			systemPromptOverride: 'No pack {{AVAILABLE_TOOLS}}',
 		});
 
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(4);
 	});
 
@@ -435,14 +439,14 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 			systemPromptOverride: 'Starter {{AVAILABLE_TOOLS}} end',
 		});
 
-		let agent = registry.getActive()!;
+		let agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(0);
 		expect(agent.systemPrompt).toContain('reasoning-only');
 
 		registry.setMcpRegistry(mockMcpProvider);
 		registry.rebuildMcpTools();
 
-		agent = registry.getActive()!;
+		agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(4);
 		expect(agent.systemPrompt).toContain('- mcp__memory__search_nodes');
 		expect(agent.systemPrompt).toContain(
@@ -470,7 +474,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 			systemPromptOverride: 'No MCP {{AVAILABLE_TOOLS}}',
 		});
 
-		const agent = registry.getActive()!;
+		const agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(0);
 		expect(agent.systemPrompt).toContain('reasoning-only');
 	});

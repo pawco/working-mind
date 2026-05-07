@@ -204,7 +204,11 @@ export function refreshKnowledgeIndex(currentPrompt: string): string {
 	if (idx !== -1) {
 		const nextSection = currentPrompt.indexOf('\n\n## ', idx + marker.length);
 		if (nextSection !== -1) {
-			return currentPrompt.slice(0, idx) + newIndexBlock + currentPrompt.slice(nextSection);
+			return (
+				currentPrompt.slice(0, idx) +
+				newIndexBlock +
+				currentPrompt.slice(nextSection)
+			);
 		}
 		return currentPrompt.slice(0, idx) + newIndexBlock;
 	}

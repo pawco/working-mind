@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import stripJsonComments from 'strip-json-comments';
 import { describe, expect, it } from 'vitest';
 import {
 	formatZodError,
@@ -8,10 +12,6 @@ import {
 	providersDataSchema,
 	sessionDataSchema,
 } from './schemas.js';
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import stripJsonComments from 'strip-json-comments';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

@@ -1,5 +1,5 @@
-import { loadProviders } from './provider-loader.js';
 import type { ModelEntry, ProviderEntry } from '../schemas.js';
+import { loadProviders } from './provider-loader.js';
 
 export type { ModelEntry, ProviderEntry };
 

@@ -31,8 +31,8 @@ export class SkillRegistry {
 
 	getActive(): SkillDef[] {
 		return [...this.activeSkills]
-			.map((n) => this.skills.get(n)!)
-			.filter(Boolean);
+			.map((n) => this.skills.get(n))
+			.filter((s): s is SkillDef => Boolean(s));
 	}
 
 	getAll(): SkillDef[] {

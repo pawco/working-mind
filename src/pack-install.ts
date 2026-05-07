@@ -12,12 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import {
-	readPackManifest,
-	type PackManifest,
-	validateNoRequiredMcp,
-	validateNoRequiredSettings,
-} from './pack-loader.js';
+import { type PackManifest, readPackManifest } from './pack-loader.js';
 import { getPacksDir } from './paths.js';
 
 const PACKS_DIR = getPacksDir();

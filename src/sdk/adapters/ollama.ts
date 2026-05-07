@@ -2,8 +2,7 @@ import type { ProviderAdapter } from '../adapter.js';
 import type { ProviderConfig, StreamEvent } from '../provider.js';
 import { toolDefToOpenAIFormat } from '../tool.js';
 
-const DEBUG =
-	typeof process !== 'undefined' && process.env.WMIND_DEBUG === '1';
+const DEBUG = typeof process !== 'undefined' && process.env.WMIND_DEBUG === '1';
 
 export class OllamaProviderError extends Error {
 	constructor(

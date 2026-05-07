@@ -1,21 +1,32 @@
-import { describe, it, expect } from 'vitest';
-import { classifyProviderError, formatErrorForDisplay, ERROR_CATEGORY_LABELS } from './provider-error.js';
+import { describe, expect, it } from 'vitest';
 import { AnthropicProviderError } from './adapters/anthropic.js';
 import { OllamaProviderError } from './adapters/ollama.js';
+import {
+	classifyProviderError,
+	ERROR_CATEGORY_LABELS,
+	formatErrorForDisplay,
+} from './provider-error.js';
 
 describe('classifyProviderError', () => {
 	it('classifies no API key errors', () => {
-		const result = classifyProviderError(new Error('No API key configured for OpenAI. Use /connect to set one up.'));
+		const result = classifyProviderError(
+			new Error(
+				'No API key configured for OpenAI. Use /connect to set one up.',
+			),
+		);
 		expect(result.category).toBe('no_api_key');
 		expect(result.canRetry).toBe(false);
 		expect(result.suggestion).toContain('/connect');
 	});
 
 	it('classifies OpenAI SDK RateLimitError (429)', () => {
-		const err = Object.assign(new Error('Rate limit reached for default-global'), {
-			constructor: { name: 'RateLimitError' },
-			status: 429,
-		});
+		const err = Object.assign(
+			new Error('Rate limit reached for default-global'),
+			{
+				constructor: { name: 'RateLimitError' },
+				status: 429,
+			},
+		);
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('rate_limit');
 		expect(result.statusCode).toBe(429);
@@ -36,7 +47,9 @@ describe('classifyProviderError', () => {
 
 	it('classifies context length exceeded', () => {
 		const err = Object.assign(
-			new Error("This model's maximum context length is 128000 tokens. However, your messages resulted in 150000 tokens."),
+			new Error(
+				"This model's maximum context length is 128000 tokens. However, your messages resulted in 150000 tokens.",
+			),
 			{ code: 'context_length_exceeded', status: 400 },
 		);
 		const result = classifyProviderError(err);
@@ -46,16 +59,26 @@ describe('classifyProviderError', () => {
 	});
 
 	it('classifies AnthropicProviderError with rate_limit_error type', () => {
-		const err = new AnthropicProviderError(429, 'rate_limit_error', 'This request would exceed the rate limit');
+		const err = new AnthropicProviderError(
+			429,
+			'rate_limit_error',
+			'This request would exceed the rate limit',
+		);
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('rate_limit');
 		expect(result.statusCode).toBe(429);
-		expect(result.providerMessage).toBe('This request would exceed the rate limit');
+		expect(result.providerMessage).toBe(
+			'This request would exceed the rate limit',
+		);
 		expect(result.canRetry).toBe(true);
 	});
 
 	it('classifies AnthropicProviderError with authentication_error type', () => {
-		const err = new AnthropicProviderError(401, 'authentication_error', 'invalid x-api-key');
+		const err = new AnthropicProviderError(
+			401,
+			'authentication_error',
+			'invalid x-api-key',
+		);
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('auth');
 		expect(result.statusCode).toBe(401);
@@ -63,7 +86,11 @@ describe('classifyProviderError', () => {
 	});
 
 	it('classifies AnthropicProviderError with overloaded_error type', () => {
-		const err = new AnthropicProviderError(529, 'overloaded_error', 'Overloaded');
+		const err = new AnthropicProviderError(
+			529,
+			'overloaded_error',
+			'Overloaded',
+		);
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('overloaded');
 		expect(result.canRetry).toBe(true);
@@ -109,13 +136,17 @@ describe('classifyProviderError', () => {
 	});
 
 	it('falls back to unknown for unrecognized errors', () => {
-		const result = classifyProviderError(new Error('Something unexpected happened'));
+		const result = classifyProviderError(
+			new Error('Something unexpected happened'),
+		);
 		expect(result.category).toBe('unknown');
 		expect(result.canRetry).toBe(true);
 	});
 
 	it('classifies legacy "Anthropic error" string format', () => {
-		const err = new Error('Anthropic error 429: {"type":"error","error":{"type":"rate_limit_error","message":"Too many requests"}}');
+		const err = new Error(
+			'Anthropic error 429: {"type":"error","error":{"type":"rate_limit_error","message":"Too many requests"}}',
+		);
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('rate_limit');
 		expect(result.statusCode).toBe(429);
@@ -177,8 +208,15 @@ describe('formatErrorForDisplay', () => {
 describe('ERROR_CATEGORY_LABELS', () => {
 	it('has a label for every category', () => {
 		const categories: Array<keyof typeof ERROR_CATEGORY_LABELS> = [
-			'rate_limit', 'auth', 'context_length', 'overloaded',
-			'server_error', 'connection', 'not_found', 'no_api_key', 'unknown',
+			'rate_limit',
+			'auth',
+			'context_length',
+			'overloaded',
+			'server_error',
+			'connection',
+			'not_found',
+			'no_api_key',
+			'unknown',
 		];
 		for (const cat of categories) {
 			expect(ERROR_CATEGORY_LABELS[cat]).toBeTruthy();

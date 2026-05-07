@@ -66,7 +66,7 @@ export const modelCmd: SlashCommand = {
 			return { type: 'message', content: `Current model: ${ctx.agent.model}` };
 		}
 
-		let resolved;
+		let resolved: Awaited<ReturnType<typeof resolveModelSpec>> | undefined;
 		try {
 			resolved = resolveModelSpec(ctx.args, ctx.config.userConfig);
 		} catch (err: any) {

@@ -92,7 +92,11 @@ export function mcpToolToToolDef(
 		name: string;
 		description?: string;
 		inputSchema: any;
-		annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean };
+		annotations?: {
+			readOnlyHint?: boolean;
+			destructiveHint?: boolean;
+			idempotentHint?: boolean;
+		};
 	},
 	client: Client,
 ): ToolDef {
@@ -103,7 +107,9 @@ export function mcpToolToToolDef(
 		name: namespacedName,
 		description: `[${serverName}] ${mcpTool.description || mcpTool.name}`,
 		parameters: mcpTool.inputSchema || { type: 'object', properties: {} },
-		argSchema: mcpTool.inputSchema ? jsonSchemaToZod(mcpTool.inputSchema) : undefined,
+		argSchema: mcpTool.inputSchema
+			? jsonSchemaToZod(mcpTool.inputSchema)
+			: undefined,
 		execute: async (args: Record<string, any>) => {
 			const result = await callToolWithRetry(client, mcpTool.name, args);
 			const content = extractContent(

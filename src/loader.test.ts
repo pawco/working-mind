@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getBuiltInCommands, getPackProvidedCommands } from './builtins/index.js';
+import {
+	getBuiltInCommands,
+	getPackProvidedCommands,
+} from './builtins/index.js';
 import {
 	loadPacks,
 	mergePackTools,
@@ -265,33 +268,33 @@ describe('getBuiltInCommands includes core commands', () => {
 
 		const resolved = registry.resolve('/ingest');
 		expect(resolved).not.toBeNull();
-		expect(resolved!.command.name).toBe('ingest');
+		expect(resolved?.command.name).toBe('ingest');
 
 		const nsResolved = registry.resolve('/custom-pack:ingest');
 		expect(nsResolved).not.toBeNull();
-		expect(nsResolved!.command.description).toBe('Pack-declared ingest');
+		expect(nsResolved?.command.description).toBe('Pack-declared ingest');
 	});
 
 	it('ingest command works without any pack loaded', () => {
 		const builtins = getBuiltInCommands();
 		const ingest = builtins.find((c) => c.name === 'ingest');
 		expect(ingest).toBeDefined();
-		expect(ingest!.description).toContain('Markdown');
-		expect(ingest!.requiresConfirmation).toBe(true);
+		expect(ingest?.description).toContain('Markdown');
+		expect(ingest?.requiresConfirmation).toBe(true);
 	});
 
 	it('memory command works without any pack loaded', () => {
 		const builtins = getBuiltInCommands();
 		const memory = builtins.find((c) => c.name === 'memory');
 		expect(memory).toBeDefined();
-		expect(memory!.description).toContain('knowledge graph');
+		expect(memory?.description).toContain('knowledge graph');
 	});
 
 	it('lint command works without any pack loaded', () => {
 		const builtins = getBuiltInCommands();
 		const lint = builtins.find((c) => c.name === 'lint');
 		expect(lint).toBeDefined();
-		expect(lint!.description).toContain('Audit');
+		expect(lint?.description).toContain('Audit');
 	});
 });
 
@@ -330,6 +333,6 @@ describe('default memory MCP server', () => {
 		expect(mcpRegistry.hasServer('memory')).toBe(true);
 		const info = mcpRegistry.getServerInfo('memory');
 		expect(info).toBeDefined();
-		expect(info!.enabled).toBe(true);
+		expect(info?.enabled).toBe(true);
 	});
 });
