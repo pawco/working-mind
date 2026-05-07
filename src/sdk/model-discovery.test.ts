@@ -112,10 +112,7 @@ describe('mergeModels', () => {
 	});
 
 	it('does not duplicate curated models', () => {
-		const discovered: DiscoveredModel[] = [
-			{ id: 'test/model-a' },
-			{ id: 'test/model-b' },
-		];
+		const discovered: DiscoveredModel[] = [{ id: 'test/model-a' }, { id: 'test/model-b' }];
 		const result = mergeModels(mockProvider.models, discovered);
 		expect(result).toHaveLength(2);
 		expect(result[0].displayName).toBe('Model A');

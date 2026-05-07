@@ -411,9 +411,7 @@ describe('runAgent - simple text response', () => {
 			},
 		);
 
-		const unknownResult = results.find((r) =>
-			r.error?.includes('Unknown tool'),
-		);
+		const unknownResult = results.find((r) => r.error?.includes('Unknown tool'));
 		expect(unknownResult).toBeDefined();
 		expect(unknownResult.isError).toBe(true);
 	});
@@ -423,11 +421,7 @@ describe('runAgent - simple text response', () => {
 		let turnIdx = 0;
 		mockAdapter = {
 			format: 'openai' as const,
-			async *stream(
-				_msgs: any[],
-				_tools: any,
-				opts: any,
-			): AsyncGenerator<StreamEvent> {
+			async *stream(_msgs: any[], _tools: any, opts: any): AsyncGenerator<StreamEvent> {
 				capturedOpts.push(opts);
 				if (turnIdx === 0) {
 					turnIdx++;

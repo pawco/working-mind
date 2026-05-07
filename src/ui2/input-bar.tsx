@@ -112,9 +112,7 @@ export function computeInputBarHeight(
 	_termWidth: number = 80,
 ): number {
 	if (waitingCmdConfirmation) {
-		const msgLines = cmdConfirmationMessage
-			? cmdConfirmationMessage.split('\n').length
-			: 0;
+		const msgLines = cmdConfirmationMessage ? cmdConfirmationMessage.split('\n').length : 0;
 		return INPUT_H + msgLines + INFO_BAR_H + SEPARATOR_H;
 	}
 	if (isStreaming || waitingConfirmation) {
@@ -276,18 +274,12 @@ export function InputBar({
 		);
 	}
 
-	const { lines, cursorRow, cursorCol } = getVisibleLines(
-		input,
-		cursorIndex,
-		INPUT_H,
-	);
+	const { lines, cursorRow, cursorCol } = getVisibleLines(input, cursorIndex, INPUT_H);
 
 	const allLines = input.split('\n');
 	const totalLines = allLines.length;
 	const scrollIndicator =
-		totalLines > INPUT_H
-			? ` ${Math.min(cursorRow + 1, totalLines)}/${totalLines}`
-			: '';
+		totalLines > INPUT_H ? ` ${Math.min(cursorRow + 1, totalLines)}/${totalLines}` : '';
 
 	return h(
 		'box',

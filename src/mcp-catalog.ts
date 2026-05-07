@@ -13,18 +13,14 @@ export const KNOWN_SERVERS: KnownServer[] = [
 		name: 'Brave Search',
 		description: 'Web, image, video, news search',
 		package: '@brave/brave-search-mcp-server',
-		envVars: [
-			{ name: 'BRAVE_API_KEY', label: 'Brave API Key', required: true },
-		],
+		envVars: [{ name: 'BRAVE_API_KEY', label: 'Brave API Key', required: true }],
 	},
 	{
 		id: 'firecrawl',
 		name: 'Firecrawl',
 		description: 'Web scraping, crawling & extraction',
 		package: 'firecrawl-mcp',
-		envVars: [
-			{ name: 'FIRECRAWL_API_KEY', label: 'Firecrawl API Key', required: true },
-		],
+		envVars: [{ name: 'FIRECRAWL_API_KEY', label: 'Firecrawl API Key', required: true }],
 	},
 	{
 		id: 'arxiv',
@@ -99,9 +95,7 @@ export const KNOWN_SERVERS: KnownServer[] = [
 		name: 'Google Maps',
 		description: 'Geocoding & directions',
 		package: '@modelcontextprotocol/server-google-maps',
-		envVars: [
-			{ name: 'GOOGLE_MAPS_API_KEY', label: 'Maps API Key', required: true },
-		],
+		envVars: [{ name: 'GOOGLE_MAPS_API_KEY', label: 'Maps API Key', required: true }],
 	},
 	{
 		id: 'puppeteer',
@@ -136,8 +130,6 @@ export const KNOWN_SERVERS: KnownServer[] = [
 		name: 'Slack',
 		description: 'Messaging & channels',
 		package: '@modelcontextprotocol/server-slack',
-		envVars: [
-			{ name: 'SLACK_BOT_TOKEN', label: 'Slack Bot Token', required: true },
-		],
+		envVars: [{ name: 'SLACK_BOT_TOKEN', label: 'Slack Bot Token', required: true }],
 	},
 ];

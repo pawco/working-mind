@@ -2,11 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { splitFrontmatter } from './frontmatter.js';
 import { getCommandsDir, getMcpProjectDir } from './paths.js';
-import type {
-	CommandContext,
-	CommandResult,
-	SlashCommand,
-} from './sdk/command.js';
+import type { CommandContext, CommandResult, SlashCommand } from './sdk/command.js';
 
 const CONFIG_DIR = getCommandsDir();
 

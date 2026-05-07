@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	compactMessages,
-	estimateMessageTokens,
-	shouldCompact,
-} from './context.js';
+import { compactMessages, estimateMessageTokens, shouldCompact } from './context.js';
 
 describe('estimateMessageTokens', () => {
 	it('estimates tokens from message content', () => {
@@ -16,9 +12,7 @@ describe('estimateMessageTokens', () => {
 			{
 				role: 'assistant',
 				content: '',
-				tool_calls: [
-					{ name: 'mcp__memory__search_nodes', arguments: '{"query":"test"}' },
-				],
+				tool_calls: [{ name: 'mcp__memory__search_nodes', arguments: '{"query":"test"}' }],
 			},
 		];
 		const tokens = estimateMessageTokens(msgs);

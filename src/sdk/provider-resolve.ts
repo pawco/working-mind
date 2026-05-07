@@ -15,10 +15,7 @@ import {
 
 const memoryKeyCache: Record<string, string> = {};
 
-function customToProviderEntry(
-	id: string,
-	custom: CustomProviderEntry,
-): ProviderEntry {
+function customToProviderEntry(id: string, custom: CustomProviderEntry): ProviderEntry {
 	return {
 		id,
 		displayName: custom.displayName,
@@ -79,10 +76,7 @@ export interface ResolvedProvider {
 	adapter: ProviderAdapter;
 }
 
-export function resolveModelSpec(
-	spec: string,
-	config?: UserConfig,
-): ResolvedProvider {
+export function resolveModelSpec(spec: string, config?: UserConfig): ResolvedProvider {
 	const resolved = resolveAlias(spec);
 	const merged = getMergedProviders(config);
 	const [providerId, ...modelParts] = resolved.includes('/')
@@ -130,10 +124,7 @@ function buildResolved(
 	};
 }
 
-export function resolveApiKey(
-	provider: ProviderEntry,
-	config?: UserConfig,
-): string {
+export function resolveApiKey(provider: ProviderEntry, config?: UserConfig): string {
 	if (!provider.needsApiKey) return '';
 
 	const cached = memoryKeyCache[provider.id];
@@ -249,10 +240,7 @@ async function probeLocalUrl(url: string): Promise<LocalProviderProbeResult> {
 	}
 }
 
-export function isOllamaModelAvailable(
-	modelId: string,
-	ollamaModels: OllamaModelInfo[],
-): boolean {
+export function isOllamaModelAvailable(modelId: string, ollamaModels: OllamaModelInfo[]): boolean {
 	if (ollamaModels.length === 0) return false;
 	const stripped = modelId.replace(/:latest$/, '');
 	return ollamaModels.some((m) => {
@@ -276,10 +264,7 @@ export function matchOllamaLocalModel(
 	});
 }
 
-export function resolveOllamaModelName(
-	requested: string,
-	ollamaModels: OllamaModelInfo[],
-): string {
+export function resolveOllamaModelName(requested: string, ollamaModels: OllamaModelInfo[]): string {
 	if (ollamaModels.length === 0) return requested;
 	const match = matchOllamaLocalModel(requested, ollamaModels);
 	if (match) return match.name;
@@ -365,10 +350,7 @@ export async function probeLocalFast(): Promise<LocalFastProbeResult> {
 	}
 }
 
-function inferProvider(
-	model: string,
-	providers: ProviderEntry[] = PROVIDERS,
-): [string, string] {
+function inferProvider(model: string, providers: ProviderEntry[] = PROVIDERS): [string, string] {
 	for (const provider of providers) {
 		if (provider.modelPrefixes?.length) {
 			for (const prefix of provider.modelPrefixes) {
@@ -379,9 +361,7 @@ function inferProvider(
 		}
 	}
 	for (const provider of providers) {
-		if (
-			provider.models.some((m) => m.id === model || m.aliases?.includes(model))
-		) {
+		if (provider.models.some((m) => m.id === model || m.aliases?.includes(model))) {
 			return [provider.id, model];
 		}
 	}
@@ -394,7 +374,6 @@ function inferProvider(
 			}
 		}
 	}
-	const fallback =
-		providers.find((p) => p.isPrimary && p.needsApiKey) ?? providers[0];
+	const fallback = providers.find((p) => p.isPrimary && p.needsApiKey) ?? providers[0];
 	return [fallback.id, model];
 }

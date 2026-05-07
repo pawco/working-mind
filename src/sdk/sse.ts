@@ -1,6 +1,4 @@
-export async function* parseSSE(
-	stream: ReadableStream<Uint8Array>,
-): AsyncGenerator<any> {
+export async function* parseSSE(stream: ReadableStream<Uint8Array>): AsyncGenerator<any> {
 	const reader = stream.getReader();
 	const decoder = new TextDecoder();
 	let buffer = '';

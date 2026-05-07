@@ -1,10 +1,4 @@
-import {
-	forwardRef,
-	createElement as h,
-	useCallback,
-	useImperativeHandle,
-	useRef,
-} from 'react';
+import { forwardRef, createElement as h, useCallback, useImperativeHandle, useRef } from 'react';
 import type { AgentInstance } from '../registry.js';
 import type { HistoryEntry } from '../sdk/command.js';
 import { ACCENT_ASSISTANT, MessageCard } from './message-card.js';

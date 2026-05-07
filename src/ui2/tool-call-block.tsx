@@ -88,9 +88,7 @@ function buildCollapsedSummary(args: ParsedArg[], maxLen: number): string {
 	const parts: string[] = [];
 	let len = 0;
 	for (const arg of args) {
-		const part = arg.isPath
-			? arg.value
-			: `${arg.key}: ${truncateValue(arg.value, 40)}`;
+		const part = arg.isPath ? arg.value : `${arg.key}: ${truncateValue(arg.value, 40)}`;
 		if (len + part.length + (parts.length > 0 ? 2 : 0) > maxLen) {
 			const remaining = args.length - parts.length;
 			if (remaining > 0) parts.push(`+${remaining}`);
@@ -109,11 +107,7 @@ function buildExpandedLines(args: ParsedArg[]): string[] {
 	});
 }
 
-export function ToolCallBlock({
-	entry,
-	expanded,
-	collapsed,
-}: ToolCallBlockProps) {
+export function ToolCallBlock({ entry, expanded, collapsed }: ToolCallBlockProps) {
 	if (collapsed) {
 		return h(MessageCard, {
 			accentColor: ACCENT_TOOL_CALL,
@@ -132,9 +126,7 @@ export function ToolCallBlock({
 	const filePath = extractPrimaryPath(entry.name || '', safeContent);
 	const label = filePath || entry.name || 'tool';
 	const duration =
-		entry.startTime && entry.endTime
-			? formatDuration(entry.endTime - entry.startTime)
-			: null;
+		entry.startTime && entry.endTime ? formatDuration(entry.endTime - entry.startTime) : null;
 	const parsed = parseJsonArgs(safeContent);
 
 	let argsContent: ReturnType<typeof h> | null = null;
@@ -186,9 +178,7 @@ export function ToolCallBlock({
 			);
 		} else {
 			const truncated =
-				safeContent.length > 200
-					? `${safeContent.slice(0, 197)}...`
-					: safeContent;
+				safeContent.length > 200 ? `${safeContent.slice(0, 197)}...` : safeContent;
 			argsContent = h(
 				'box',
 				{ paddingLeft: 1 },
@@ -208,8 +198,7 @@ export function ToolCallBlock({
 				h('text', { content: '>', fg: ACCENT_TOOL_CALL }),
 				h('text', { content: ` ${label}`, bold: true }),
 				duration && h('text', { content: ` ${duration}`, fg: '#7982a9' }),
-				entry.streaming &&
-					h('text', { content: ' \u258d', fg: ACCENT_TOOL_CALL }),
+				entry.streaming && h('text', { content: ' \u258d', fg: ACCENT_TOOL_CALL }),
 			),
 		},
 		argsContent,

@@ -15,9 +15,7 @@ export function loadSkillFiles(dirs?: string[]): SkillDef[] {
 	const skills: SkillDef[] = [];
 	for (const dir of searchDirs) {
 		if (!existsSync(dir)) continue;
-		const entries = readdirSync(dir).filter((e) =>
-			statSync(join(dir, e)).isDirectory(),
-		);
+		const entries = readdirSync(dir).filter((e) => statSync(join(dir, e)).isDirectory());
 		for (const entry of entries) {
 			const skillFile = join(dir, entry, 'SKILL.md');
 			if (existsSync(skillFile)) {

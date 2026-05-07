@@ -5,18 +5,9 @@ import { getPackProvidedCommands } from './builtins/index.js';
 import type { CommandRegistry } from './command-registry.js';
 import type { UserConfig } from './config.js';
 import type { McpRegistry } from './mcp/registry.js';
-import {
-	findPackDir,
-	type LoadedPack,
-	loadPack as loadDeclarativePack,
-} from './pack-loader.js';
+import { findPackDir, type LoadedPack, loadPack as loadDeclarativePack } from './pack-loader.js';
 import { getStorePath } from './paths.js';
-import {
-	applyToolFilter,
-	type ToolDef,
-	type ToolFilter,
-	type ToolPack,
-} from './sdk/tool.js';
+import { applyToolFilter, type ToolDef, type ToolFilter, type ToolPack } from './sdk/tool.js';
 import type { SkillRegistry } from './skill-registry.js';
 
 export interface PackLoadResult {
@@ -86,9 +77,7 @@ export async function loadPacks(
 					}
 				}
 			} else {
-				console.error(
-					`Pack "${name}" not found (checked builtin and ~/.wmind/packs/)`,
-				);
+				console.error(`Pack "${name}" not found (checked builtin and ~/.wmind/packs/)`);
 			}
 		} catch (err: any) {
 			console.error(`Failed to load pack "${name}": ${err.message}`);
@@ -147,9 +136,7 @@ async function loadDeclarativePackByName(
 	const loaded = await loadDeclarativePack(packDir, config, skillRegistry);
 
 	if (mcpRegistry && Object.keys(loaded.mcpServerConfigs).length > 0) {
-		for (const [serverName, serverConfig] of Object.entries(
-			loaded.mcpServerConfigs,
-		)) {
+		for (const [serverName, serverConfig] of Object.entries(loaded.mcpServerConfigs)) {
 			mcpRegistry.registerServer(serverName, serverConfig);
 		}
 	}
@@ -157,10 +144,7 @@ async function loadDeclarativePackByName(
 	return loaded;
 }
 
-export function mergePackTools(
-	packs: ToolPack[],
-	filter?: ToolFilter,
-): ToolDef[] {
+export function mergePackTools(packs: ToolPack[], filter?: ToolFilter): ToolDef[] {
 	const toolMap = new Map<string, ToolDef>();
 	for (const pack of packs) {
 		for (const tool of pack.tools) {
@@ -170,11 +154,7 @@ export function mergePackTools(
 	return applyToolFilter([...toolMap.values()], filter);
 }
 
-export function resolvePersonaFromPacks(
-	persona: string,
-	packs: ToolPack[],
-	packName?: string,
-) {
+export function resolvePersonaFromPacks(persona: string, packs: ToolPack[], packName?: string) {
 	for (const pack of packs) {
 		if (packName && pack.name !== packName) continue;
 		if (pack.personas?.[persona]) return pack.personas[persona];
@@ -182,10 +162,7 @@ export function resolvePersonaFromPacks(
 	return null;
 }
 
-export function resolvePackPrompt(
-	packs: ToolPack[],
-	packName?: string,
-): string | null {
+export function resolvePackPrompt(packs: ToolPack[], packName?: string): string | null {
 	if (!packName) {
 		if (packs.length > 0) return packs[0].systemPrompt || null;
 		return null;

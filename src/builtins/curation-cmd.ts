@@ -1,18 +1,8 @@
-import {
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	readFileSync,
-	writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { getResearchDir } from '../paths.js';
-import type {
-	CommandContext,
-	CommandResult,
-	SlashCommand,
-} from '../sdk/command.js';
+import type { CommandContext, CommandResult, SlashCommand } from '../sdk/command.js';
 
 const RESEARCH_DIR = getResearchDir();
 
@@ -27,22 +17,16 @@ function getActiveCuration(
 function extractUserMessages(ctx: CommandContext): string[] {
 	return ctx.agent.messages
 		.filter((m: any) => m.role === 'user')
-		.map((m: any) =>
-			typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-		);
+		.map((m: any) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)));
 }
 
 function extractAssistantMessages(ctx: CommandContext): string[] {
 	return ctx.agent.messages
 		.filter((m: any) => m.role === 'assistant')
-		.map((m: any) =>
-			typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-		);
+		.map((m: any) => (typeof m.content === 'string' ? m.content : JSON.stringify(m.content)));
 }
 
-function extractToolResults(
-	ctx: CommandContext,
-): { name: string; content: string }[] {
+function extractToolResults(ctx: CommandContext): { name: string; content: string }[] {
 	return ctx.agent.messages
 		.filter((m: any) => m.role === 'tool_result')
 		.map((m: any) => ({
@@ -137,17 +121,13 @@ function buildExportDoc(ctx: CommandContext): string {
 		lines.push(msg);
 		lines.push('');
 		if (i >= 19) {
-			lines.push(
-				`... and ${assistantMsgs.length - 20} more responses omitted for brevity.`,
-			);
+			lines.push(`... and ${assistantMsgs.length - 20} more responses omitted for brevity.`);
 			break;
 		}
 	}
 
 	lines.push('## Gaps & Limitations');
-	lines.push(
-		'(Review the conversation for unresolved questions and unknowns.)',
-	);
+	lines.push('(Review the conversation for unresolved questions and unknowns.)');
 
 	if (uniqueSources.length > 0) {
 		lines.push('', '## Sources & Methodology');
@@ -157,11 +137,7 @@ function buildExportDoc(ctx: CommandContext): string {
 		lines.push(`Date of research: ${date}`);
 	}
 
-	lines.push(
-		'',
-		'---',
-		`Produced by Working Mind on ${date}. ${sourceCount} sources consulted.`,
-	);
+	lines.push('', '---', `Produced by Working Mind on ${date}. ${sourceCount} sources consulted.`);
 
 	return lines.join('\n');
 }
@@ -229,8 +205,7 @@ export const exportCmd: SlashCommand = {
 			return { type: 'message', content: doc };
 		}
 
-		const packName =
-			ctx.config.packs.length > 0 ? ctx.config.packs[0].name : 'default';
+		const packName = ctx.config.packs.length > 0 ? ctx.config.packs[0].name : 'default';
 		const slug = ctx.args ? sanitizeFilename(ctx.args) : getTopicSlug(ctx);
 		const date = new Date().toISOString().split('T')[0];
 		const filename = `${date}-${slug}.md`;
@@ -263,8 +238,7 @@ export const importCmd: SlashCommand = {
 		if (!raw) {
 			return {
 				type: 'message',
-				content:
-					'Usage: /import <path>\nUse /research list to see saved documents.',
+				content: 'Usage: /import <path>\nUse /research list to see saved documents.',
 			};
 		}
 
@@ -321,14 +295,13 @@ export const researchCmd: SlashCommand = {
 			if (!existsSync(RESEARCH_DIR)) {
 				return {
 					type: 'message',
-					content:
-						'No saved research. Use /export to save your first document.',
+					content: 'No saved research. Use /export to save your first document.',
 				};
 			}
 
 			const entries: string[] = [];
-			const dirs = readdirSync(RESEARCH_DIR, { withFileTypes: true }).filter(
-				(d) => d.isDirectory(),
+			const dirs = readdirSync(RESEARCH_DIR, { withFileTypes: true }).filter((d) =>
+				d.isDirectory(),
 			);
 
 			for (const dir of dirs) {
@@ -346,8 +319,7 @@ export const researchCmd: SlashCommand = {
 			if (entries.length === 0) {
 				return {
 					type: 'message',
-					content:
-						'No saved research. Use /export to save your first document.',
+					content: 'No saved research. Use /export to save your first document.',
 				};
 			}
 
@@ -382,8 +354,7 @@ export const researchCmd: SlashCommand = {
 				const content = readFileSync(filepath, 'utf-8');
 				const truncated = content.slice(0, 800);
 				const suffix = `...(full document: ${content.length} chars -- use /import to load)`;
-				const preview =
-					content.length > 800 ? `${truncated}\n\n${suffix}` : content;
+				const preview = content.length > 800 ? `${truncated}\n\n${suffix}` : content;
 				return { type: 'message', content: preview, plainText: true };
 			} catch (err: any) {
 				return {

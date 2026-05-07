@@ -16,10 +16,6 @@ export type StreamEvent =
 	| { type: 'usage'; promptTokens: number; completionTokens: number };
 
 export interface Provider {
-	stream(
-		messages: any[],
-		tools: any[],
-		config: ProviderConfig,
-	): AsyncGenerator<StreamEvent>;
+	stream(messages: any[], tools: any[], config: ProviderConfig): AsyncGenerator<StreamEvent>;
 	format: 'openai' | 'anthropic';
 }

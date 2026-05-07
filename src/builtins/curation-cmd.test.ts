@@ -2,12 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-	exportCmd,
-	importCmd,
-	researchCmd,
-	summarizeCmd,
-} from './curation-cmd.js';
+import { exportCmd, importCmd, researchCmd, summarizeCmd } from './curation-cmd.js';
 
 const RESEARCH_DIR = join(homedir(), '.wmind', 'research');
 
@@ -277,10 +272,7 @@ describe('curation commands', () => {
 		});
 
 		it('show previews a document', () => {
-			writeFileSync(
-				join(tmpDir, '2026-01-01-test.md'),
-				'# Test\nShort content.',
-			);
+			writeFileSync(join(tmpDir, '2026-01-01-test.md'), '# Test\nShort content.');
 			const ctx = makeCtx();
 			ctx.args = `show ${join(tmpDir, '2026-01-01-test.md')}`;
 			const result = msg(researchCmd.handler(ctx));

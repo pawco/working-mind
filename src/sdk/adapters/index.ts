@@ -8,10 +8,7 @@ export { AnthropicAdapter } from './anthropic.js';
 export { OllamaAdapter } from './ollama.js';
 export { OpenAICompatAdapter } from './openai-compat.js';
 
-export function createAdapter(
-	apiFormat: string,
-	config: ProviderConfig,
-): ProviderAdapter {
+export function createAdapter(apiFormat: string, config: ProviderConfig): ProviderAdapter {
 	switch (apiFormat) {
 		case 'anthropic':
 			return new AnthropicAdapter(config);

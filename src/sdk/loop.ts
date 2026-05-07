@@ -27,11 +27,7 @@ export class RequestCancelledError extends Error {
 
 const TOOL_CALL_APPROVAL_TIMEOUT_MS = 30_000;
 
-function withTimeout<T>(
-	promise: Promise<T>,
-	ms: number,
-	fallback: T,
-): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
 	return new Promise<T>((resolve) => {
 		const timer = setTimeout(() => resolve(fallback), ms);
 		promise.then(
@@ -74,8 +70,7 @@ function tryParseTextToolCall(
 		const parsed = JSON.parse(jsonBlockMatch[1]);
 		if (parsed && typeof parsed === 'object') {
 			const name = parsed.name || parsed.tool || parsed.function_name;
-			const args =
-				parsed.arguments || parsed.args || parsed.parameters || parsed.params;
+			const args = parsed.arguments || parsed.args || parsed.parameters || parsed.params;
 			if (name && toolNames.has(name) && args) {
 				return {
 					name,
@@ -87,19 +82,13 @@ function tryParseTextToolCall(
 	return null;
 }
 
-export async function runAgent(
-	messages: any[],
-	config: AgentRunConfig,
-): Promise<string> {
+export async function runAgent(messages: any[], config: AgentRunConfig): Promise<string> {
 	const resolved = resolveModelSpec(config.model, config.userConfig);
 	const adapter = resolved.adapter;
 	const toolMap = new Map(config.tools.map((t) => [t.name, t]));
 
 	if (resolved.provider.needsApiKey && !resolved.apiKey) {
-		const asyncKey = await resolveApiKeyAsync(
-			resolved.provider,
-			config.userConfig,
-		);
+		const asyncKey = await resolveApiKeyAsync(resolved.provider, config.userConfig);
 		if (asyncKey) {
 			resolved.apiKey = asyncKey;
 		} else {
@@ -137,11 +126,9 @@ export async function runAgent(
 		const onThinking = skipThinking ? undefined : config.onThinking;
 		const streamMessages = adapter.buildMessages(messages, config.systemPrompt);
 
-		const maxTokens =
-			config.userConfig?.agents?.maxTokens ?? adapter.getDefaultMaxTokens();
+		const maxTokens = config.userConfig?.agents?.maxTokens ?? adapter.getDefaultMaxTokens();
 		const thinkingBudget =
-			config.userConfig?.agents?.thinkingBudget ??
-			adapter.getDefaultThinkingBudget();
+			config.userConfig?.agents?.thinkingBudget ?? adapter.getDefaultThinkingBudget();
 
 		for await (const event of adapter.stream(streamMessages, apiTools, {
 			apiKey: resolved.apiKey,
@@ -178,10 +165,7 @@ export async function runAgent(
 
 		if (toolCalls.length === 0) {
 			if (supportsToolCalling && assistantContent) {
-				const parsed = tryParseTextToolCall(
-					assistantContent,
-					new Set(toolMap.keys()),
-				);
+				const parsed = tryParseTextToolCall(assistantContent, new Set(toolMap.keys()));
 				if (parsed) {
 					toolCalls.push({
 						id: `tc_text_${Date.now()}`,
@@ -273,14 +257,12 @@ export async function runAgent(
 			config.onToolResult?.(tc.name, result);
 
 			const resultStr =
-				toolError ??
-				(typeof result === 'string' ? result : JSON.stringify(result));
+				toolError ?? (typeof result === 'string' ? result : JSON.stringify(result));
 			messages.push(adapter.buildToolResult(tc.id, resultStr, !!toolError));
 		}
 	}
 
-	const toolList =
-		toolsUsed.size > 0 ? ` Tools called: ${[...toolsUsed].join(', ')}.` : '';
+	const toolList = toolsUsed.size > 0 ? ` Tools called: ${[...toolsUsed].join(', ')}.` : '';
 	const maxTurnsMsg = `Max turns reached without completion.${toolList} Narrow the scope or increase the turn budget.`;
 	messages.push({ role: 'assistant', content: maxTurnsMsg });
 	return maxTurnsMsg;

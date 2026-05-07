@@ -46,15 +46,11 @@ export class SkillRegistry {
 	findAutoDiscoverable(query: string): SkillDef | null {
 		const lower = query.toLowerCase();
 		const words = lower.split(/\s+/).filter((w) => w.length > 3);
-		const discoverable = [...this.skills.values()].filter(
-			(s) => s.autoDiscover !== false,
-		);
+		const discoverable = [...this.skills.values()].filter((s) => s.autoDiscover !== false);
 		for (const skill of discoverable) {
 			if (lower.includes(skill.name)) return skill;
 			const descWords = skill.description.toLowerCase().split(/\s+/);
-			if (
-				descWords.some((dw) => words.some((qw) => qw === dw && dw.length > 3))
-			)
+			if (descWords.some((dw) => words.some((qw) => qw === dw && dw.length > 3)))
 				return skill;
 		}
 		return null;

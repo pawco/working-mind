@@ -22,18 +22,11 @@ function makeEntity(
 	return { name, entityType, observations };
 }
 
-function makeRelation(
-	from: string,
-	to: string,
-	relationType: string,
-): MemoryRelation {
+function makeRelation(from: string, to: string, relationType: string): MemoryRelation {
 	return { from, to, relationType };
 }
 
-function makeCtx(
-	args: string,
-	overrides?: Partial<CommandContext>,
-): CommandContext {
+function makeCtx(args: string, overrides?: Partial<CommandContext>): CommandContext {
 	return {
 		args,
 		agent: {
@@ -67,10 +60,7 @@ function makeCtx(
 	} as CommandContext;
 }
 
-async function run(
-	args: string,
-	overrides?: Partial<CommandContext>,
-): Promise<CommandResult> {
+async function run(args: string, overrides?: Partial<CommandContext>): Promise<CommandResult> {
 	return (await fineTuneCmd.handler(makeCtx(args, overrides))) as CommandResult;
 }
 
@@ -142,11 +132,7 @@ describe('findOrphans', () => {
 	});
 
 	it('detects partial orphans', () => {
-		const entities = [
-			makeEntity('A', 't'),
-			makeEntity('B', 't'),
-			makeEntity('C', 't'),
-		];
+		const entities = [makeEntity('A', 't'), makeEntity('B', 't'), makeEntity('C', 't')];
 		const relations = [makeRelation('A', 'B', 'r')];
 		const result = findOrphans(entities, relations);
 		expect(result.count).toBe(1);
@@ -183,8 +169,7 @@ describe('checkReadiness', () => {
 			);
 		}
 		for (let i = 0; i < 40; i++) {
-			const rt =
-				i % 3 === 0 ? 'enables' : i % 3 === 1 ? 'requires' : 'improves_on';
+			const rt = i % 3 === 0 ? 'enables' : i % 3 === 1 ? 'requires' : 'improves_on';
 			relations.push(makeRelation(`E${i}`, `E${(i + 1) % 50}`, rt));
 		}
 		const report = checkReadiness(entities, relations);
@@ -222,11 +207,7 @@ describe('checkReadiness', () => {
 	});
 
 	it('reports orphan count and percentage', () => {
-		const entities = [
-			makeEntity('A', 't'),
-			makeEntity('B', 't'),
-			makeEntity('C', 't'),
-		];
+		const entities = [makeEntity('A', 't'), makeEntity('B', 't'), makeEntity('C', 't')];
 		const relations = [makeRelation('A', 'B', 'r')];
 		const report = checkReadiness(entities, relations);
 		expect(report.orphanCount).toBe(1);
@@ -314,10 +295,7 @@ describe('fineTuneCmd', () => {
 		) {
 			return;
 		}
-		if (
-			result.type === 'message' &&
-			result.content.includes('Export blocked')
-		) {
+		if (result.type === 'message' && result.content.includes('Export blocked')) {
 			expect(result.content).toContain('not_ready');
 		}
 	});

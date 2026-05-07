@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-	getBuiltInCommands,
-	getPackProvidedCommands,
-} from './builtins/index.js';
-import {
-	loadPacks,
-	mergePackTools,
-	resolvePersonaFromPacks,
-} from './loader.js';
+import { getBuiltInCommands, getPackProvidedCommands } from './builtins/index.js';
+import { loadPacks, mergePackTools, resolvePersonaFromPacks } from './loader.js';
 import type { PackManifest } from './pack-loader.js';
 import type { ToolPack } from './sdk/tool.js';
 
@@ -66,12 +59,8 @@ describe('mergePackTools', () => {
 
 	it('last pack wins for duplicate tool names', () => {
 		const tools = mergePackTools([packA, packB]);
-		const _foo = tools.find(
-			(t) => t.name === 'foo' && !t.description.includes('override'),
-		);
-		const fooB = tools.find(
-			(t) => t.name === 'foo' && t.description.includes('override'),
-		);
+		const _foo = tools.find((t) => t.name === 'foo' && !t.description.includes('override'));
+		const fooB = tools.find((t) => t.name === 'foo' && t.description.includes('override'));
 		expect(fooB).toBeDefined();
 	});
 

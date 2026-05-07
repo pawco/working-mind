@@ -3,21 +3,13 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import providersJsoncPath from '../data/providers.jsonc' with { type: 'file' };
-import starterCurationExportPath from '../packs/starter/curation/export.md' with {
-	type: 'file',
-};
+import starterCurationExportPath from '../packs/starter/curation/export.md' with { type: 'file' };
 import starterCurationSummarizePath from '../packs/starter/curation/summarize.md' with {
 	type: 'file',
 };
-import starterPackJsonPath from '../packs/starter/pack.json' with {
-	type: 'file',
-};
-import starterPromptMdPath from '../packs/starter/prompt.md' with {
-	type: 'file',
-};
-import starterReadmeMdPath from '../packs/starter/readme.md' with {
-	type: 'file',
-};
+import starterPackJsonPath from '../packs/starter/pack.json' with { type: 'file' };
+import starterPromptMdPath from '../packs/starter/prompt.md' with { type: 'file' };
+import starterReadmeMdPath from '../packs/starter/readme.md' with { type: 'file' };
 
 const EMBEDDED_FILES: Record<string, string> = {
 	'data/providers.jsonc': providersJsoncPath,

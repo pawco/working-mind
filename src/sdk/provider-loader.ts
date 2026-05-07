@@ -2,11 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
 import { getDataDir, getProvidersPath } from '../paths.js';
-import {
-	type ProviderEntry,
-	type ProvidersData,
-	providersDataSchema,
-} from '../schemas.js';
+import { type ProviderEntry, type ProvidersData, providersDataSchema } from '../schemas.js';
 
 export type { ProviderEntry, ProvidersData };
 
@@ -56,10 +52,7 @@ export function loadProviders(): ProvidersData {
 		const user = providersDataSchema.partial().parse(rawUser);
 		cached = {
 			providers: user.providers
-				? deepMergeProviders(
-						bundled.providers,
-						user.providers as Partial<ProviderEntry>[],
-					)
+				? deepMergeProviders(bundled.providers, user.providers as Partial<ProviderEntry>[])
 				: bundled.providers,
 			tierAliases: { ...bundled.tierAliases, ...user.tierAliases },
 			modelAliases: { ...bundled.modelAliases, ...user.modelAliases },

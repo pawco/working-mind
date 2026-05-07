@@ -1,10 +1,4 @@
-import {
-	chmodSync,
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	writeFileSync,
-} from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
 import type { z } from 'zod';
@@ -21,13 +15,7 @@ import {
 } from './schemas.js';
 import { loadProviders } from './sdk/provider-loader.js';
 
-export type {
-	CustomProviderEntry,
-	McpEnvVarDef,
-	McpServerConfig,
-	UserConfig,
-	UserProviderConfig,
-};
+export type { CustomProviderEntry, McpEnvVarDef, McpServerConfig, UserConfig, UserProviderConfig };
 
 const CONFIG_DIR = resolveConfigDir();
 const CONFIG_FILE = join(CONFIG_DIR, 'config.jsonc');
@@ -76,9 +64,7 @@ export function loadUserConfig(): UserConfig {
 		const parsed = JSON.parse(json);
 		const validated = partialUserConfigSchema.safeParse(parsed);
 		if (!validated.success) {
-			console.error(
-				`Warning: ${formatZodError('Invalid config.jsonc', validated.error)}`,
-			);
+			console.error(`Warning: ${formatZodError('Invalid config.jsonc', validated.error)}`);
 			console.error('Falling back to defaults for invalid fields.');
 			return cloneConfig(DEFAULT_CONFIG);
 		}
@@ -106,13 +92,13 @@ function deepMerge(
 	override: z.infer<typeof partialUserConfigSchema>,
 ): UserConfig {
 	const result: UserConfig = cloneConfig(base);
-	if (override.defaultModel !== undefined)
-		result.defaultModel = override.defaultModel;
+	if (override.defaultModel !== undefined) result.defaultModel = override.defaultModel;
 	if (override.providers) {
 		result.providers = Object.fromEntries(
-			Object.entries({ ...base.providers, ...override.providers }).map(
-				([k, v]) => [k, { ...(base.providers?.[k] ?? {}), ...v }],
-			),
+			Object.entries({ ...base.providers, ...override.providers }).map(([k, v]) => [
+				k,
+				{ ...(base.providers?.[k] ?? {}), ...v },
+			]),
 		);
 	}
 	if (override.systemPrompts) {

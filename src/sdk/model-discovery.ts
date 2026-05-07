@@ -110,10 +110,7 @@ export function clearDiskCache(providerId?: string): void {
 	} catch {}
 }
 
-function buildHeaders(
-	provider: ProviderEntry,
-	apiKey: string,
-): Record<string, string> {
+function buildHeaders(provider: ProviderEntry, apiKey: string): Record<string, string> {
 	if (provider.authStyle === 'none') return {};
 	if (provider.authStyle === 'x-api-key') {
 		return { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
@@ -145,9 +142,7 @@ function parseResponse(data: OpenAiModelsResponse): DiscoveredModel[] {
 		.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-export async function fetchOllamaModels(
-	baseUrl: string,
-): Promise<DiscoveredModel[]> {
+export async function fetchOllamaModels(baseUrl: string): Promise<DiscoveredModel[]> {
 	try {
 		const res = await fetch(`${baseUrl}/api/tags`, {
 			signal: AbortSignal.timeout(10000),
@@ -268,10 +263,7 @@ export async function fetchRemoteModelsForProvider(
 	return fetchRemoteModels(provider, apiKey);
 }
 
-export function mergeModels(
-	curated: ModelEntry[],
-	discovered: DiscoveredModel[],
-): ModelEntry[] {
+export function mergeModels(curated: ModelEntry[], discovered: DiscoveredModel[]): ModelEntry[] {
 	const curatedIds = new Set(curated.map((m) => m.id));
 	const curatedByAlias = new Map<string, ModelEntry>();
 	for (const m of curated) {

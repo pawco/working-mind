@@ -1,14 +1,6 @@
 import type { PackManifest } from '../pack-loader.js';
-import type {
-	CommandContext,
-	CommandResult,
-	SlashCommand,
-} from '../sdk/command.js';
-import {
-	clearDiscoveryCache,
-	clearDiskCache,
-	getMergedModels,
-} from '../sdk/model-discovery.js';
+import type { CommandContext, CommandResult, SlashCommand } from '../sdk/command.js';
+import { clearDiscoveryCache, clearDiskCache, getMergedModels } from '../sdk/model-discovery.js';
 import { findProvider, resolveAlias } from '../sdk/provider-registry.js';
 import {
 	cacheApiKey,
@@ -18,12 +10,7 @@ import {
 	resolveModelSpec,
 } from '../sdk/provider-resolve.js';
 import { listSystemPrompts, saveSystemPrompt } from '../system-prompt.js';
-import {
-	exportCmd,
-	importCmd,
-	researchCmd,
-	summarizeCmd,
-} from './curation-cmd.js';
+import { exportCmd, importCmd, researchCmd, summarizeCmd } from './curation-cmd.js';
 import { ingestCmd } from './ingest-cmd.js';
 import { lintCmd } from './lint-cmd.js';
 import { getMcpCommands } from './mcp-cmd.js';
@@ -85,10 +72,7 @@ export const modelCmd: SlashCommand = {
 		if (provider.needsApiKey) {
 			const apiKey = resolveApiKey(provider, ctx.config.userConfig);
 			if (!apiKey) {
-				const asyncKey = await resolveApiKeyAsync(
-					provider,
-					ctx.config.userConfig,
-				);
+				const asyncKey = await resolveApiKeyAsync(provider, ctx.config.userConfig);
 				if (!asyncKey) {
 					return {
 						type: 'message',
@@ -258,8 +242,7 @@ export const costCmd: SlashCommand = {
 	handler: (ctx: CommandContext): CommandResult => {
 		const msgCount = ctx.agent.messages.length;
 		const chars = ctx.agent.messages.reduce(
-			(sum: number, m: any) =>
-				sum + (typeof m.content === 'string' ? m.content.length : 0),
+			(sum: number, m: any) => sum + (typeof m.content === 'string' ? m.content.length : 0),
 			0,
 		);
 		const approxTokens = Math.round(chars / 4);
@@ -360,9 +343,7 @@ export const modelsCmd: SlashCommand = {
 
 		if (arg) {
 			const resolved = resolveAlias(arg);
-			const providerId = resolved.includes('/')
-				? resolved.split('/')[0]
-				: resolved;
+			const providerId = resolved.includes('/') ? resolved.split('/')[0] : resolved;
 			const provider = findProvider(providerId);
 			if (!provider) {
 				return { type: 'message', content: `Unknown provider: ${providerId}` };
@@ -389,9 +370,7 @@ export const modelsCmd: SlashCommand = {
 				]
 					.filter(Boolean)
 					.join(',');
-				const curated = provider.models.some((c) => c.id === m.id)
-					? ''
-					: ' [remote]';
+				const curated = provider.models.some((c) => c.id === m.id) ? '' : ' [remote]';
 				return `${m.id.padEnd(42)} ${price.padEnd(18)} ${ctx2.padEnd(8)} ${badges}${curated}`;
 			});
 			return {
@@ -415,9 +394,7 @@ export const modelsCmd: SlashCommand = {
 			const curated = provider.models.length;
 			const remote = models.length - curated;
 			const remoteLabel = remote > 0 ? ` +${remote} remote` : '';
-			lines.push(
-				`${provider.displayName}: ${models.length} models${remoteLabel}`,
-			);
+			lines.push(`${provider.displayName}: ${models.length} models${remoteLabel}`);
 		}
 		return {
 			type: 'message',
@@ -464,20 +441,16 @@ export const promptCmd: SlashCommand = {
 			const uc = ctx.getUserConfig?.();
 			if (!uc) return { type: 'message', content: 'Config not available.' };
 			const prompts = listSystemPrompts(uc);
-			if (prompts.length === 0)
-				return { type: 'message', content: 'No saved prompts.' };
+			if (prompts.length === 0) return { type: 'message', content: 'No saved prompts.' };
 			return {
 				type: 'message',
-				content: prompts
-					.map((p) => `  ${p.name.padEnd(20)} ${p.preview}`)
-					.join('\n'),
+				content: prompts.map((p) => `  ${p.name.padEnd(20)} ${p.preview}`).join('\n'),
 				plainText: true,
 			};
 		}
 		if (sub.startsWith('save ')) {
 			const name = sub.slice(5).trim();
-			if (!name)
-				return { type: 'message', content: 'Usage: /prompt save <name>' };
+			if (!name) return { type: 'message', content: 'Usage: /prompt save <name>' };
 			const uc = ctx.getUserConfig?.();
 			if (!uc) return { type: 'message', content: 'Config not available.' };
 			saveSystemPrompt(name, ctx.agent.systemPrompt, uc);
@@ -486,8 +459,7 @@ export const promptCmd: SlashCommand = {
 		}
 		if (sub.startsWith('set ')) {
 			const promptText = sub.slice(4).trim();
-			if (!promptText)
-				return { type: 'message', content: 'Usage: /prompt set <text>' };
+			if (!promptText) return { type: 'message', content: 'Usage: /prompt set <text>' };
 			ctx.setCustomPrompt?.(promptText);
 			return { type: 'message', content: 'System prompt updated.' };
 		}
@@ -533,9 +505,7 @@ export function getBuiltInCommands(): SlashCommand[] {
 	];
 }
 
-export function getPackProvidedCommands(
-	manifest: PackManifest,
-): SlashCommand[] {
+export function getPackProvidedCommands(manifest: PackManifest): SlashCommand[] {
 	const commands: SlashCommand[] = [];
 	const declared = new Set(Object.keys(manifest.commands || {}));
 

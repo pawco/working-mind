@@ -1,17 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export const SPINNER_FRAMES = [
-	'⠋',
-	'⠙',
-	'⠹',
-	'⠸',
-	'⠼',
-	'⠴',
-	'⠦',
-	'⠧',
-	'⠇',
-	'⠏',
-];
+export const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 export const INPUT_H = 2;
 export const INPUT_MAX_H = 2;
@@ -24,10 +13,7 @@ export const INPUT_ACCENT = '#56b6c2';
 export const INPUT_CONFIRM_BG = '#4a2800';
 export const SEPARATOR_COLOR = '#30363d';
 
-export function useSpinner(
-	active: boolean,
-	interval = 80,
-): { frame: string; elapsed: string } {
+export function useSpinner(active: boolean, interval = 80): { frame: string; elapsed: string } {
 	const [idx, setIdx] = useState(0);
 	const [start, setStart] = useState(0);
 	const [now, setNow] = useState(0);

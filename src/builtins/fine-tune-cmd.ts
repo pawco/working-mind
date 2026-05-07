@@ -4,11 +4,7 @@ import { getActiveStoreName, parseMemoryJsonl } from '../memory/render.js';
 import { getStorePath } from '../paths.js';
 import type { MemoryEntity, MemoryGraph, MemoryRelation } from '../schemas.js';
 import { parseMemoryGraph } from '../schemas.js';
-import type {
-	CommandContext,
-	CommandResult,
-	SlashCommand,
-} from '../sdk/command.js';
+import type { CommandContext, CommandResult, SlashCommand } from '../sdk/command.js';
 
 const CONFIRMED_FLAG = '--confirmed';
 const PREVIEW_FLAG = '--preview';
@@ -116,15 +112,7 @@ const PERSONA_STRATEGIES: Record<string, string[]> = {
 };
 
 function getDefaultStrategies(): string[] {
-	return [
-		'qa',
-		'relation',
-		'multihop',
-		'triple',
-		'summary',
-		'classify',
-		'vocab',
-	];
+	return ['qa', 'relation', 'multihop', 'triple', 'summary', 'classify', 'vocab'];
 }
 
 function resolveMemoryPath(storeName?: string): string {
@@ -135,10 +123,7 @@ function resolveMemoryPath(storeName?: string): string {
 	return getStorePath('default');
 }
 
-async function getMemoryGraph(
-	ctx: CommandContext,
-	storeName: string,
-): Promise<MemoryGraph | null> {
+async function getMemoryGraph(ctx: CommandContext, storeName: string): Promise<MemoryGraph | null> {
 	const mcpRegistry = ctx.mcpRegistry;
 	if (mcpRegistry && typeof mcpRegistry.getTools === 'function') {
 		const tools = mcpRegistry.getTools();
@@ -181,10 +166,7 @@ export function countMultiHopPaths(relations: MemoryRelation[]): number {
 	return count;
 }
 
-export function computeGraphDensity(
-	entityCount: number,
-	relationCount: number,
-): number {
+export function computeGraphDensity(entityCount: number, relationCount: number): number {
 	if (entityCount < 2) return 0;
 	return relationCount / (entityCount * (entityCount - 1));
 }
@@ -193,10 +175,7 @@ export function findOrphans(
 	entities: MemoryEntity[],
 	relations: MemoryRelation[],
 ): { count: number; percentage: number; names: string[] } {
-	const connected = new Set([
-		...relations.map((r) => r.from),
-		...relations.map((r) => r.to),
-	]);
+	const connected = new Set([...relations.map((r) => r.from), ...relations.map((r) => r.to)]);
 	const orphans = entities.filter((e) => !connected.has(e.name));
 	const pct = entities.length > 0 ? orphans.length / entities.length : 0;
 	return {
@@ -276,24 +255,18 @@ export function checkReadiness(
 
 		const minPairs = entitiesWithObs.length * 2;
 		const maxPairs = entitiesWithObs.length * 4 + relations.length;
-		const estMin =
-			status === 'not_ready' ? Math.floor(minPairs * 0.3) : minPairs;
-		const estMax =
-			status === 'not_ready' ? Math.floor(maxPairs * 0.3) : maxPairs;
+		const estMin = status === 'not_ready' ? Math.floor(minPairs * 0.3) : minPairs;
+		const estMax = status === 'not_ready' ? Math.floor(maxPairs * 0.3) : maxPairs;
 
 		const details: string[] = [];
 		if (!entityOk && t.minEntities > 0)
 			details.push(`${entities.length} entities (need ${t.minEntities})`);
 		if (!obsOk && t.minEntitiesWithObs > 0)
-			details.push(
-				`${entitiesWithObs.length} with 2+ obs (need ${t.minEntitiesWithObs})`,
-			);
+			details.push(`${entitiesWithObs.length} with 2+ obs (need ${t.minEntitiesWithObs})`);
 		if (!relOk && t.minRelations > 0)
 			details.push(`${relations.length} relations (need ${t.minRelations})`);
 		if (!relTypeOk && t.minRelationTypes > 0)
-			details.push(
-				`${relationTypes.length} types (need ${t.minRelationTypes})`,
-			);
+			details.push(`${relationTypes.length} types (need ${t.minRelationTypes})`);
 		if (!hopOk && t.minMultiHopPaths > 0)
 			details.push(`${multiHopPaths} 2-hop paths (need ${t.minMultiHopPaths})`);
 		if (!densityOk && t.minGraphDensity > 0)
@@ -312,11 +285,7 @@ export function checkReadiness(
 	const personaScore = totalWeight > 0 ? totalScore / totalWeight : 0;
 
 	const overall: 'ready' | 'marginal' | 'not_ready' =
-		personaScore >= 0.7
-			? 'ready'
-			: personaScore >= 0.4
-				? 'marginal'
-				: 'not_ready';
+		personaScore >= 0.7 ? 'ready' : personaScore >= 0.4 ? 'marginal' : 'not_ready';
 
 	const recommendations: string[] = [];
 	if (entitiesWithObs.length < 15) {
@@ -360,12 +329,7 @@ export function checkReadiness(
 }
 
 export function formatReadinessReport(report: ReadinessReport): string {
-	const icon =
-		report.overall === 'ready'
-			? '+'
-			: report.overall === 'marginal'
-				? '~'
-				: '-';
+	const icon = report.overall === 'ready' ? '+' : report.overall === 'marginal' ? '~' : '-';
 	const label =
 		report.overall === 'ready'
 			? 'READY'
@@ -385,11 +349,7 @@ export function formatReadinessReport(report: ReadinessReport): string {
 	for (const [strat, r] of Object.entries(report.strategyReadiness)) {
 		const si = r.status === 'ready' ? '+' : r.status === 'marginal' ? '~' : '-';
 		const sl =
-			r.status === 'ready'
-				? 'READY'
-				: r.status === 'marginal'
-					? 'MARGINAL'
-					: 'NOT READY';
+			r.status === 'ready' ? 'READY' : r.status === 'marginal' ? 'MARGINAL' : 'NOT READY';
 		const est = `Est. ${r.estimatedPairs[0]}-${r.estimatedPairs[1]} pairs`;
 		const detail = r.details ? `  ${r.details}` : '';
 		lines.push(`  ${si} ${strat.padEnd(12)} ${est.padEnd(24)} ${sl}${detail}`);
@@ -467,8 +427,7 @@ function buildExport(
 	}
 	const relationTypeCounts: Record<string, number> = {};
 	for (const r of relations) {
-		relationTypeCounts[r.relationType] =
-			(relationTypeCounts[r.relationType] || 0) + 1;
+		relationTypeCounts[r.relationType] = (relationTypeCounts[r.relationType] || 0) + 1;
 	}
 
 	const sortedEntityTypes = Object.entries(entityTypeCounts)
@@ -478,22 +437,16 @@ function buildExport(
 		.sort((a, b) => b[1] - a[1])
 		.map(([t]) => t);
 
-	const connected = new Set([
-		...relations.map((r) => r.from),
-		...relations.map((r) => r.to),
-	]);
+	const connected = new Set([...relations.map((r) => r.from), ...relations.map((r) => r.to)]);
 	const avgObs =
 		entities.length > 0
 			? Math.round(
-					(entities.reduce((s, e) => s + e.observations.length, 0) /
-						entities.length) *
+					(entities.reduce((s, e) => s + e.observations.length, 0) / entities.length) *
 						10,
 				) / 10
 			: 0;
 	const avgRel =
-		entities.length > 0
-			? Math.round((connected.size / entities.length) * 10) / 10
-			: 0;
+		entities.length > 0 ? Math.round((connected.size / entities.length) * 10) / 10 : 0;
 
 	const sourceDocs = [
 		...new Set(
@@ -552,9 +505,7 @@ export const fineTuneCmd: SlashCommand = {
 		const personaName = personaMatch ? personaMatch[1] : undefined;
 
 		const storeMatch = raw.match(/--store\s+(\S+)/);
-		const storeName = storeMatch
-			? storeMatch[1]
-			: getActiveStoreName(ctx.config?.userConfig);
+		const storeName = storeMatch ? storeMatch[1] : getActiveStoreName(ctx.config?.userConfig);
 
 		const graph = await getMemoryGraph(ctx, storeName);
 
@@ -574,11 +525,7 @@ export const fineTuneCmd: SlashCommand = {
 			};
 		}
 
-		const readiness = checkReadiness(
-			graph.entities,
-			graph.relations,
-			personaName,
-		);
+		const readiness = checkReadiness(graph.entities, graph.relations, personaName);
 
 		const report = formatReadinessReport(readiness);
 
@@ -623,9 +570,7 @@ export const fineTuneCmd: SlashCommand = {
 
 		const packName = ctx.agent.packName || null;
 		const version = '0.3.0';
-		const personaNames = personaName
-			? [personaName]
-			: Object.keys(PERSONA_STRATEGIES);
+		const personaNames = personaName ? [personaName] : Object.keys(PERSONA_STRATEGIES);
 
 		const oexp = buildExport(
 			graph.entities,

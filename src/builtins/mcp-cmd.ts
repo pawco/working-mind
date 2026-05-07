@@ -2,11 +2,7 @@ import type { McpEnvVarDef } from '../config.js';
 import { loadUserConfig, writeUserConfig } from '../config.js';
 import type { McpServerInfo } from '../mcp/registry.js';
 import { KNOWN_SERVERS } from '../mcp-catalog.js';
-import type {
-	CommandContext,
-	CommandResult,
-	SlashCommand,
-} from '../sdk/command.js';
+import type { CommandContext, CommandResult, SlashCommand } from '../sdk/command.js';
 
 function catalogEnvVarsForServer(name: string): McpEnvVarDef[] {
 	const catalog = KNOWN_SERVERS.find(
@@ -59,8 +55,7 @@ export const mcpListCmd: SlashCommand = {
 	description: 'List MCP servers and their status',
 	handler: (ctx: CommandContext): CommandResult => {
 		const mcpRegistry = ctx.mcpRegistry;
-		if (!mcpRegistry)
-			return { type: 'message', content: 'MCP not initialized.' };
+		if (!mcpRegistry) return { type: 'message', content: 'MCP not initialized.' };
 		const servers = mcpRegistry.listServers();
 		if (servers.length === 0)
 			return {
@@ -91,8 +86,7 @@ export const mcpAddCmd: SlashCommand = {
 	description: 'Add an MCP server (interactive wizard)',
 	handler: async (ctx: CommandContext): Promise<CommandResult> => {
 		const mcpRegistry = ctx.mcpRegistry;
-		if (!mcpRegistry)
-			return { type: 'message', content: 'MCP not initialized.' };
+		if (!mcpRegistry) return { type: 'message', content: 'MCP not initialized.' };
 
 		return { type: 'message', content: 'Opening MCP wizard...' };
 	},
@@ -104,8 +98,7 @@ export const mcpRemoveCmd: SlashCommand = {
 	usage: '<name>',
 	handler: async (ctx: CommandContext): Promise<CommandResult> => {
 		const mcpRegistry = ctx.mcpRegistry;
-		if (!mcpRegistry)
-			return { type: 'message', content: 'MCP not initialized.' };
+		if (!mcpRegistry) return { type: 'message', content: 'MCP not initialized.' };
 		const name = ctx.args.trim();
 		if (!name) return { type: 'message', content: 'Usage: /mcp-remove <name>' };
 		if (!mcpRegistry.hasServer(name))
@@ -129,11 +122,9 @@ export const mcpConnectCmd: SlashCommand = {
 	usage: '<name>',
 	handler: async (ctx: CommandContext): Promise<CommandResult> => {
 		const mcpRegistry = ctx.mcpRegistry;
-		if (!mcpRegistry)
-			return { type: 'message', content: 'MCP not initialized.' };
+		if (!mcpRegistry) return { type: 'message', content: 'MCP not initialized.' };
 		const name = ctx.args.trim();
-		if (!name)
-			return { type: 'message', content: 'Usage: /mcp-connect <name>' };
+		if (!name) return { type: 'message', content: 'Usage: /mcp-connect <name>' };
 
 		const info = mcpRegistry.getServerInfo(name);
 		if (!info) {
@@ -247,11 +238,9 @@ export const mcpDisconnectCmd: SlashCommand = {
 	usage: '<name>',
 	handler: async (ctx: CommandContext): Promise<CommandResult> => {
 		const mcpRegistry = ctx.mcpRegistry;
-		if (!mcpRegistry)
-			return { type: 'message', content: 'MCP not initialized.' };
+		if (!mcpRegistry) return { type: 'message', content: 'MCP not initialized.' };
 		const name = ctx.args.trim();
-		if (!name)
-			return { type: 'message', content: 'Usage: /mcp-disconnect <name>' };
+		if (!name) return { type: 'message', content: 'Usage: /mcp-disconnect <name>' };
 		await mcpRegistry.disconnect(name);
 		return { type: 'message', content: `Disconnected "${name}".` };
 	},
@@ -266,12 +255,5 @@ export const mcpCmd: SlashCommand = {
 };
 
 export function getMcpCommands(): SlashCommand[] {
-	return [
-		mcpCmd,
-		mcpListCmd,
-		mcpAddCmd,
-		mcpRemoveCmd,
-		mcpConnectCmd,
-		mcpDisconnectCmd,
-	];
+	return [mcpCmd, mcpListCmd, mcpAddCmd, mcpRemoveCmd, mcpConnectCmd, mcpDisconnectCmd];
 }

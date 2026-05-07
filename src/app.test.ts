@@ -3,9 +3,7 @@ import type { HistoryEntry } from './sdk/command.js';
 import { computeInputBarHeight } from './ui2/input-bar.js';
 
 describe('parseSlashCommand', () => {
-	function parseSlashCommand(
-		input: string,
-	): { command: string; arg?: string } | null {
+	function parseSlashCommand(input: string): { command: string; arg?: string } | null {
 		const trimmed = input.trim();
 		if (!trimmed.startsWith('/')) return null;
 		const parts = trimmed.slice(1).split(/\s+/);
@@ -63,10 +61,7 @@ describe('compaction guard', () => {
 	const THRESHOLD = 200;
 	const KEEP = 50;
 
-	function applyCompaction(
-		history: HistoryEntry[],
-		isStreaming: boolean,
-	): HistoryEntry[] {
+	function applyCompaction(history: HistoryEntry[], isStreaming: boolean): HistoryEntry[] {
 		if (history.length <= THRESHOLD || isStreaming) return history;
 		const removed = history.length - KEEP;
 		const kept = history.slice(-KEEP);
@@ -145,9 +140,7 @@ describe('computeInputBarHeight', () => {
 	});
 
 	it('returns 4 + msg lines when waiting cmd confirmation', () => {
-		expect(
-			computeInputBarHeight('anything', false, false, true, 'one\ntwo\nthree'),
-		).toBe(7);
+		expect(computeInputBarHeight('anything', false, false, true, 'one\ntwo\nthree')).toBe(7);
 	});
 
 	it('returns 4 for cmd confirmation with empty message', () => {
@@ -155,9 +148,7 @@ describe('computeInputBarHeight', () => {
 	});
 
 	it('cmd confirmation takes precedence over streaming', () => {
-		expect(computeInputBarHeight('anything', true, false, true, 'a\nb')).toBe(
-			6,
-		);
+		expect(computeInputBarHeight('anything', true, false, true, 'a\nb')).toBe(6);
 	});
 
 	it('returns fixed 4 for single-line input in idle state', () => {

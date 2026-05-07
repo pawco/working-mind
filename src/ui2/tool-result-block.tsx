@@ -52,8 +52,7 @@ function classifyContent(text: string): ContentType {
 			filePathCount++;
 		}
 	}
-	if (filePathCount >= 3 && filePathCount / lines.length > 0.5)
-		return 'file-list';
+	if (filePathCount >= 3 && filePathCount / lines.length > 0.5) return 'file-list';
 
 	let matchCount = 0;
 	for (const line of lines) {
@@ -72,14 +71,11 @@ function classifyContent(text: string): ContentType {
 function excerptJson(text: string, maxPairs: number): string {
 	try {
 		const parsed = JSON.parse(text.trim());
-		if (typeof parsed !== 'object' || parsed === null)
-			return text.slice(0, 200);
+		if (typeof parsed !== 'object' || parsed === null) return text.slice(0, 200);
 		if (Array.isArray(parsed)) {
 			if (parsed.length <= maxPairs) {
 				return parsed
-					.map((item) =>
-						typeof item === 'string' ? item : JSON.stringify(item),
-					)
+					.map((item) => (typeof item === 'string' ? item : JSON.stringify(item)))
 					.join('\n');
 			}
 			const shown = parsed.slice(0, maxPairs);
@@ -140,8 +136,7 @@ function smartExcerpt(
 	const contentType = classifyContent(text);
 
 	if (expanded) {
-		if (contentType === 'diff')
-			return { display: renderDiff(text), contentType };
+		if (contentType === 'diff') return { display: renderDiff(text), contentType };
 		if (contentType === 'json') {
 			try {
 				return {
@@ -168,8 +163,7 @@ function smartExcerpt(
 			return { display: excerptSearch(text, 3), contentType };
 		default: {
 			const lines = text.split('\n');
-			if (lines.length <= MAX_PREVIEW_LINES)
-				return { display: text, contentType };
+			if (lines.length <= MAX_PREVIEW_LINES) return { display: text, contentType };
 			return {
 				display: lines.slice(0, MAX_PREVIEW_LINES).join('\n'),
 				contentType,
@@ -179,9 +173,7 @@ function smartExcerpt(
 }
 
 function extractFilePath(name: string, content: string): string | null {
-	const patterns = [
-		/(?:path|file|filename|filepath|filePath)\s*[:=]\s*["']([^"']+)["']/i,
-	];
+	const patterns = [/(?:path|file|filename|filepath|filePath)\s*[:=]\s*["']([^"']+)["']/i];
 	for (const pat of patterns) {
 		const m = content.match(pat);
 		if (m) return m[1];
@@ -201,11 +193,7 @@ function extractFilePath(name: string, content: string): string | null {
 	return null;
 }
 
-export function ToolResultBlock({
-	entry,
-	expanded,
-	collapsed,
-}: ToolResultBlockProps) {
+export function ToolResultBlock({ entry, expanded, collapsed }: ToolResultBlockProps) {
 	const isOk = entry.exitCode === SUCCESS;
 	const accentColor = isOk ? ACCENT_TOOL_OK : ACCENT_TOOL_ERR;
 	const bgColor = isOk ? BG_TOOL_OK : BG_TOOL_ERR;
@@ -226,9 +214,7 @@ export function ToolResultBlock({
 	}
 
 	const duration =
-		entry.startTime && entry.endTime
-			? formatDuration(entry.endTime - entry.startTime)
-			: null;
+		entry.startTime && entry.endTime ? formatDuration(entry.endTime - entry.startTime) : null;
 
 	const rawContent = sanitizeUntrusted(entry.content);
 	const { display, contentType } = smartExcerpt(rawContent, !!expanded);

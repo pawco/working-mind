@@ -66,10 +66,7 @@ function rgbToHex(r: number, g: number, b: number): string {
 	return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
-function consume256Color(
-	params: number[],
-	offset: number,
-): { color: string; next: number } | null {
+function consume256Color(params: number[], offset: number): { color: string; next: number } | null {
 	if (params[offset] === 5 && offset + 1 < params.length) {
 		const idx = params[offset + 1];
 		if (idx >= 0 && idx < 256) {

@@ -98,25 +98,19 @@ function assembleStructured(parts: AssembleParts): string {
 
 	const activeNames = new Set((parts.activeSkills ?? []).map((s) => s.name));
 	const filtered = parts.packName
-		? (parts.allSkills ?? []).filter(
-				(s) => !s.packName || s.packName === parts.packName,
-			)
+		? (parts.allSkills ?? []).filter((s) => !s.packName || s.packName === parts.packName)
 		: (parts.allSkills ?? []);
 	const inactiveSkills = filtered.filter((s) => !activeNames.has(s.name));
 
 	if (inactiveSkills.length > 0) {
-		const index = inactiveSkills
-			.map((s) => `- ${s.name}: ${s.description}`)
-			.join('\n');
+		const index = inactiveSkills.map((s) => `- ${s.name}: ${s.description}`).join('\n');
 		prompt += `\n\n## Available Skills\nYou can activate these skills with /skill <name> or by mentioning the topic:\n${index}`;
 	}
 
 	if ((parts.activeSkills ?? []).length > 0) {
 		const skillBlock = (parts.activeSkills ?? [])
 			.map((s) => {
-				const tools = s.allowedTools
-					? `\nAllowed tools: ${s.allowedTools.join(', ')}`
-					: '';
+				const tools = s.allowedTools ? `\nAllowed tools: ${s.allowedTools.join(', ')}` : '';
 				return `## Active Skill: ${s.name}${tools}\n${s.instructions}`;
 			})
 			.join('\n\n');
@@ -158,9 +152,7 @@ function findRulesFile(): string | null {
 	return null;
 }
 
-export function listSystemPrompts(
-	config: UserConfig,
-): { name: string; preview: string }[] {
+export function listSystemPrompts(config: UserConfig): { name: string; preview: string }[] {
 	const prompts = config.systemPrompts || {};
 	return Object.entries(prompts).map(([name, prompt]) => ({
 		name,
@@ -168,11 +160,7 @@ export function listSystemPrompts(
 	}));
 }
 
-export function saveSystemPrompt(
-	name: string,
-	prompt: string,
-	config: UserConfig,
-): void {
+export function saveSystemPrompt(name: string, prompt: string, config: UserConfig): void {
 	if (!config.systemPrompts) config.systemPrompts = {};
 	config.systemPrompts[name] = prompt;
 }
@@ -204,11 +192,7 @@ export function refreshKnowledgeIndex(currentPrompt: string): string {
 	if (idx !== -1) {
 		const nextSection = currentPrompt.indexOf('\n\n## ', idx + marker.length);
 		if (nextSection !== -1) {
-			return (
-				currentPrompt.slice(0, idx) +
-				newIndexBlock +
-				currentPrompt.slice(nextSection)
-			);
+			return currentPrompt.slice(0, idx) + newIndexBlock + currentPrompt.slice(nextSection);
 		}
 		return currentPrompt.slice(0, idx) + newIndexBlock;
 	}

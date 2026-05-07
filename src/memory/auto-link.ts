@@ -25,9 +25,7 @@ export function findMentionedEntities(
 
 	if (found.length === 0) return [];
 
-	const existing = new Set(
-		graph.relations.map((r) => `${r.from}|${r.to}|${r.relationType}`),
-	);
+	const existing = new Set(graph.relations.map((r) => `${r.from}|${r.to}|${r.relationType}`));
 
 	const newRelations: { from: string; to: string; relationType: string }[] = [];
 	for (const entityName of found) {
@@ -49,9 +47,7 @@ export function findCrossLinks(
 ): { from: string; to: string; relationType: string }[] {
 	if (graph.entities.length < 2) return [];
 
-	const existing = new Set(
-		graph.relations.map((r) => `${r.from}|${r.to}|${r.relationType}`),
-	);
+	const existing = new Set(graph.relations.map((r) => `${r.from}|${r.to}|${r.relationType}`));
 
 	const newRelations: { from: string; to: string; relationType: string }[] = [];
 
@@ -90,9 +86,7 @@ export function findOrphanEntities(graph: MemoryGraph): string[] {
 		connected.add(r.from);
 		connected.add(r.to);
 	}
-	return graph.entities
-		.filter((e) => !connected.has(e.name))
-		.map((e) => e.name);
+	return graph.entities.filter((e) => !connected.has(e.name)).map((e) => e.name);
 }
 
 export function findMentionedButUndefined(graph: MemoryGraph): string[] {
@@ -122,8 +116,7 @@ export function findMentionedButUndefined(graph: MemoryGraph): string[] {
 }
 
 export function generateIndexMarkdown(graph: MemoryGraph): string {
-	if (graph.entities.length === 0)
-		return '# Knowledge Index\n\n(No entities)\n';
+	if (graph.entities.length === 0) return '# Knowledge Index\n\n(No entities)\n';
 
 	const byType = new Map<string, MemoryGraph['entities']>();
 	for (const e of graph.entities) {
@@ -146,9 +139,7 @@ export function generateIndexMarkdown(graph: MemoryGraph): string {
 		lines.push(`## ${type} (${entities.length})`);
 		for (const e of entities) {
 			const summary =
-				e.observations.length > 0
-					? e.observations[0].slice(0, 80)
-					: '(no observations)';
+				e.observations.length > 0 ? e.observations[0].slice(0, 80) : '(no observations)';
 			const relCount = graph.relations.filter(
 				(r) => r.from === e.name || r.to === e.name,
 			).length;

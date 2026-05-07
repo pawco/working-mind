@@ -1,10 +1,4 @@
-import {
-	forwardRef,
-	createElement as h,
-	useCallback,
-	useImperativeHandle,
-	useState,
-} from 'react';
+import { forwardRef, createElement as h, useCallback, useImperativeHandle, useState } from 'react';
 import type { AgentRegistry, SessionSummary } from './registry.js';
 
 type SessionStep =
@@ -34,237 +28,224 @@ const MENU_OPTIONS = [
 	{ label: 'Delete a session', action: 'delete' as const },
 ];
 
-export const SessionWizard = forwardRef<
-	SessionWizardHandle,
-	SessionWizardProps
->(function SessionWizard({ registry, onDone }, ref) {
-	const [step, setStep] = useState<SessionStep>({ id: 'menu', cursor: 0 });
+export const SessionWizard = forwardRef<SessionWizardHandle, SessionWizardProps>(
+	function SessionWizard({ registry, onDone }, ref) {
+		const [step, setStep] = useState<SessionStep>({ id: 'menu', cursor: 0 });
 
-	const handleKey = useCallback(
-		(inputChar: string, key: any) => {
-			const s = step;
+		const handleKey = useCallback(
+			(inputChar: string, key: any) => {
+				const s = step;
 
-			if (s.id === 'menu') {
-				if (key.upArrow) {
-					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
-					return;
-				}
-				if (key.downArrow) {
-					setStep({
-						...s,
-						cursor: Math.min(MENU_OPTIONS.length - 1, s.cursor + 1),
-					});
-					return;
-				}
-				if (key.escape) {
-					onDone('');
-					return;
-				}
-				const numIdx =
-					inputChar === '1'
-						? 0
-						: inputChar === '2'
-							? 1
-							: inputChar === '3'
-								? 2
-								: -1;
-				const target = numIdx >= 0 ? numIdx : key.return ? s.cursor : -1;
-				if (target < 0) return;
-				const action = MENU_OPTIONS[target]?.action;
-				if (action === 'resume') {
-					const sessions = registry.listSessions();
-					if (sessions.length === 0) {
-						setStep({ id: 'empty' });
-					} else {
-						setStep({ id: 'session-list', cursor: 0, sessions });
-					}
-					return;
-				}
-				if (action === 'new') {
-					setStep({ id: 'new-session-name', input: '', error: '' });
-					return;
-				}
-				if (action === 'delete') {
-					const sessions = registry.listSessions();
-					if (sessions.length === 0) {
-						setStep({ id: 'empty' });
-					} else {
-						setStep({ id: 'delete-select', cursor: 0, sessions });
-					}
-					return;
-				}
-				return;
-			}
-
-			if (s.id === 'session-list') {
-				if (key.upArrow) {
-					setStep({
-						...s,
-						cursor: Math.max(0, s.cursor - 1),
-					});
-					return;
-				}
-				if (key.downArrow) {
-					setStep({
-						...s,
-						cursor: Math.min(s.sessions.length - 1, s.cursor + 1),
-					});
-					return;
-				}
-				if (key.escape) {
-					setStep({ id: 'menu', cursor: 0 });
-					return;
-				}
-				if (key.return) {
-					const session = s.sessions[s.cursor];
-					if (!session) return;
-					setStep({ id: 'resuming', name: session.name });
-					const agent = registry.resumeSession(session.sessionId);
-					if (agent) {
-						setStep({
-							id: 'resumed',
-							name: session.name,
-							messageCount: agent.messages.length,
-						});
-					} else {
-						onDone(`Failed to resume "${session.name}".`);
-					}
-					return;
-				}
-				return;
-			}
-
-			if (s.id === 'new-session-name') {
-				if (key.escape) {
-					setStep({ id: 'menu', cursor: 1 });
-					return;
-				}
-				if (key.return) {
-					const name = s.input.trim();
-					if (!name) {
-						setStep({ ...s, error: 'Name is required' });
+				if (s.id === 'menu') {
+					if (key.upArrow) {
+						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
 						return;
 					}
-					const active = registry.getActive();
-					const model =
-						active?.model || 'openrouter/anthropic/claude-sonnet-4.6';
-					const packName = active?.packName;
-					registry.clear();
-					registry.createAgent({ name, model, packName });
-					registry.saveSessionsSync();
-					setStep({ id: 'created', name });
+					if (key.downArrow) {
+						setStep({
+							...s,
+							cursor: Math.min(MENU_OPTIONS.length - 1, s.cursor + 1),
+						});
+						return;
+					}
+					if (key.escape) {
+						onDone('');
+						return;
+					}
+					const numIdx =
+						inputChar === '1' ? 0 : inputChar === '2' ? 1 : inputChar === '3' ? 2 : -1;
+					const target = numIdx >= 0 ? numIdx : key.return ? s.cursor : -1;
+					if (target < 0) return;
+					const action = MENU_OPTIONS[target]?.action;
+					if (action === 'resume') {
+						const sessions = registry.listSessions();
+						if (sessions.length === 0) {
+							setStep({ id: 'empty' });
+						} else {
+							setStep({ id: 'session-list', cursor: 0, sessions });
+						}
+						return;
+					}
+					if (action === 'new') {
+						setStep({ id: 'new-session-name', input: '', error: '' });
+						return;
+					}
+					if (action === 'delete') {
+						const sessions = registry.listSessions();
+						if (sessions.length === 0) {
+							setStep({ id: 'empty' });
+						} else {
+							setStep({ id: 'delete-select', cursor: 0, sessions });
+						}
+						return;
+					}
 					return;
 				}
-				if (key.backspace) {
-					setStep({ ...s, input: s.input.slice(0, -1), error: '' });
+
+				if (s.id === 'session-list') {
+					if (key.upArrow) {
+						setStep({
+							...s,
+							cursor: Math.max(0, s.cursor - 1),
+						});
+						return;
+					}
+					if (key.downArrow) {
+						setStep({
+							...s,
+							cursor: Math.min(s.sessions.length - 1, s.cursor + 1),
+						});
+						return;
+					}
+					if (key.escape) {
+						setStep({ id: 'menu', cursor: 0 });
+						return;
+					}
+					if (key.return) {
+						const session = s.sessions[s.cursor];
+						if (!session) return;
+						setStep({ id: 'resuming', name: session.name });
+						const agent = registry.resumeSession(session.sessionId);
+						if (agent) {
+							setStep({
+								id: 'resumed',
+								name: session.name,
+								messageCount: agent.messages.length,
+							});
+						} else {
+							onDone(`Failed to resume "${session.name}".`);
+						}
+						return;
+					}
 					return;
 				}
-				if (!key.ctrl && !key.meta && inputChar) {
-					setStep({ ...s, input: s.input + inputChar, error: '' });
-				}
-				return;
-			}
 
-			if (s.id === 'resuming') {
-				if (key.escape) onDone('Resuming...');
-				return;
-			}
-
-			if (s.id === 'resumed') {
-				if (key.return || key.escape) {
-					onDone(
-						`Resumed "${s.name}" (${s.messageCount} messages in context).`,
-					);
-				}
-				return;
-			}
-
-			if (s.id === 'created') {
-				if (key.return || key.escape) {
-					onDone(`New session "${s.name}" created.`);
-				}
-				return;
-			}
-
-			if (s.id === 'delete-select') {
-				if (key.upArrow) {
-					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+				if (s.id === 'new-session-name') {
+					if (key.escape) {
+						setStep({ id: 'menu', cursor: 1 });
+						return;
+					}
+					if (key.return) {
+						const name = s.input.trim();
+						if (!name) {
+							setStep({ ...s, error: 'Name is required' });
+							return;
+						}
+						const active = registry.getActive();
+						const model = active?.model || 'openrouter/anthropic/claude-sonnet-4.6';
+						const packName = active?.packName;
+						registry.clear();
+						registry.createAgent({ name, model, packName });
+						registry.saveSessionsSync();
+						setStep({ id: 'created', name });
+						return;
+					}
+					if (key.backspace) {
+						setStep({ ...s, input: s.input.slice(0, -1), error: '' });
+						return;
+					}
+					if (!key.ctrl && !key.meta && inputChar) {
+						setStep({ ...s, input: s.input + inputChar, error: '' });
+					}
 					return;
 				}
-				if (key.downArrow) {
-					setStep({
-						...s,
-						cursor: Math.min(s.sessions.length - 1, s.cursor + 1),
-					});
+
+				if (s.id === 'resuming') {
+					if (key.escape) onDone('Resuming...');
 					return;
 				}
-				if (key.escape) {
-					setStep({ id: 'menu', cursor: 2 });
+
+				if (s.id === 'resumed') {
+					if (key.return || key.escape) {
+						onDone(`Resumed "${s.name}" (${s.messageCount} messages in context).`);
+					}
 					return;
 				}
-				if (key.return) {
-					const session = s.sessions[s.cursor];
-					if (!session) return;
-					registry.deleteSession(session.sessionId);
-					setStep({ id: 'deleted', name: session.name });
+
+				if (s.id === 'created') {
+					if (key.return || key.escape) {
+						onDone(`New session "${s.name}" created.`);
+					}
 					return;
 				}
-				return;
-			}
 
-			if (s.id === 'deleted') {
-				if (key.return || key.escape) {
-					onDone(`Deleted session "${s.name}".`);
+				if (s.id === 'delete-select') {
+					if (key.upArrow) {
+						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+						return;
+					}
+					if (key.downArrow) {
+						setStep({
+							...s,
+							cursor: Math.min(s.sessions.length - 1, s.cursor + 1),
+						});
+						return;
+					}
+					if (key.escape) {
+						setStep({ id: 'menu', cursor: 2 });
+						return;
+					}
+					if (key.return) {
+						const session = s.sessions[s.cursor];
+						if (!session) return;
+						registry.deleteSession(session.sessionId);
+						setStep({ id: 'deleted', name: session.name });
+						return;
+					}
+					return;
 				}
-				return;
-			}
 
-			if (s.id === 'empty') {
-				if (key.return || key.escape) {
-					onDone('No saved sessions found.');
+				if (s.id === 'deleted') {
+					if (key.return || key.escape) {
+						onDone(`Deleted session "${s.name}".`);
+					}
+					return;
 				}
-				return;
-			}
-		},
-		[step, registry, onDone],
-	);
 
-	const handlePaste = useCallback(
-		(text: string) => {
-			const s = step;
-			if (s.id === 'new-session-name') {
-				setStep({ ...s, input: s.input + text, error: '' });
-			}
-		},
-		[step],
-	);
+				if (s.id === 'empty') {
+					if (key.return || key.escape) {
+						onDone('No saved sessions found.');
+					}
+					return;
+				}
+			},
+			[step, registry, onDone],
+		);
 
-	useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [
-		handleKey,
-		handlePaste,
-	]);
+		const handlePaste = useCallback(
+			(text: string) => {
+				const s = step;
+				if (s.id === 'new-session-name') {
+					setStep({ ...s, input: s.input + text, error: '' });
+				}
+			},
+			[step],
+		);
 
-	return h(
-		'box',
-		{
-			flexDirection: 'column',
-			flexGrow: 1,
-			backgroundColor: '#0a0a1a',
-			paddingX: 2,
-			paddingY: 1,
-			overflow: 'hidden',
-		},
-		renderStep(step),
-		h(
+		useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [handleKey, handlePaste]);
+
+		return h(
 			'box',
-			{ marginTop: 1 },
-			h('text', {
-				dimColor: true,
-				content: 'Esc = back \u00b7 Enter = confirm',
-			}),
-		),
-	);
-});
+			{
+				flexDirection: 'column',
+				flexGrow: 1,
+				backgroundColor: '#0a0a1a',
+				paddingX: 2,
+				paddingY: 1,
+				overflow: 'hidden',
+			},
+			renderStep(step),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', {
+					dimColor: true,
+					content: 'Esc = back \u00b7 Enter = confirm',
+				}),
+			),
+		);
+	},
+);
 
 function formatTimeAgo(iso: string): string {
 	if (!iso) return '';
@@ -291,8 +272,7 @@ function renderStep(s: SessionStep): React.ReactNode {
 			}),
 			h('text', {
 				dimColor: true,
-				content:
-					'\u2191\u2193 navigate \u00b7 Enter select \u00b7 or press 1-3',
+				content: '\u2191\u2193 navigate \u00b7 Enter select \u00b7 or press 1-3',
 			}),
 			h(
 				'box',

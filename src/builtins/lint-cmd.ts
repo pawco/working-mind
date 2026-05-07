@@ -1,8 +1,4 @@
-import type {
-	CommandContext,
-	CommandResult,
-	SlashCommand,
-} from '../sdk/command.js';
+import type { CommandContext, CommandResult, SlashCommand } from '../sdk/command.js';
 
 export const lintCmd: SlashCommand = {
 	name: 'lint',

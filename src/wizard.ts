@@ -24,10 +24,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 	clack.intro(pc.bgCyan(pc.black(' Working Mind -- First Run Setup ')));
 
-	const [ollama, localFast] = await Promise.all([
-		probeOllama(),
-		probeLocalFast(),
-	]);
+	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
 
 	const primaryProviders = getPrimaryProviders();
 	const otherProviders = getOtherProviders();
@@ -51,13 +48,9 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 		let hint: string;
 		if (isLocalFast) {
-			hint = localFast.running
-				? `Running (port ${localFast.port})`
-				: 'Not running';
+			hint = localFast.running ? `Running (port ${localFast.port})` : 'Not running';
 		} else if (isOllama) {
-			hint = ollama.running
-				? `${ollama.models.length} models pulled`
-				: 'Not running';
+			hint = ollama.running ? `${ollama.models.length} models pulled` : 'Not running';
 		} else if (p.free === true) {
 			hint = 'Free';
 		} else if (p.free === 'limited') {
@@ -91,8 +84,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 		const moreOptions = otherProviders.map((p) => {
 			const hasKey = !!resolveApiKey(p, config);
 			const suffix = hasKey ? pc.green(' \u2713 key detected') : '';
-			const hint =
-				p.free === true ? 'Free' : p.free === 'limited' ? 'Free tier' : 'Paid';
+			const hint = p.free === true ? 'Free' : p.free === 'limited' ? 'Free tier' : 'Paid';
 			return { value: p.id, label: p.displayName + suffix, hint };
 		});
 		const moreChoice = await clack.select({
@@ -144,10 +136,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 					: `$${m.inputPricePer1M}/$${m.outputPricePer1M} per 1M`;
 			const ctx = formatCtx(m.contextWindow);
 			const features =
-				[
-					m.supportsReasoning ? 'thinking' : '',
-					m.supportsToolCalling ? 'tools' : '',
-				]
+				[m.supportsReasoning ? 'thinking' : '', m.supportsToolCalling ? 'tools' : '']
 					.filter(Boolean)
 					.join(', ') || 'chat only';
 			return {
@@ -229,9 +218,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 	}
 
 	writeUserConfig(config);
-	clack.log.success(
-		`Config written to ${pc.dim(`${getConfigDir()}/config.jsonc`)}`,
-	);
+	clack.log.success(`Config written to ${pc.dim(`${getConfigDir()}/config.jsonc`)}`);
 
 	if (provider.id === 'local-fast') {
 		if (localFast.running) {
@@ -262,9 +249,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 			if (testRes.ok) {
 				s.stop('Connection validated');
 			} else {
-				s.stop(
-					`Could not validate \u2014 ${testRes.status} (key may still work for chat)`,
-				);
+				s.stop(`Could not validate \u2014 ${testRes.status} (key may still work for chat)`);
 			}
 		} catch {
 			s.stop('Could not reach provider (network issue?)');
@@ -330,9 +315,7 @@ async function selectOllamaModel(
 
 	const curatedNotLocal = curated.filter((cm) => {
 		const base = cm.id.split(':')[0];
-		return !localModels.some(
-			(lm) => lm.name === cm.id || lm.name.startsWith(base),
-		);
+		return !localModels.some((lm) => lm.name === cm.id || lm.name.startsWith(base));
 	});
 
 	const curatedOptions = curatedNotLocal.map((m) => ({
@@ -374,10 +357,7 @@ async function selectOllamaModel(
 
 export async function listProviders(): Promise<void> {
 	const config = loadUserConfig();
-	const [ollama, localFast] = await Promise.all([
-		probeOllama(),
-		probeLocalFast(),
-	]);
+	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
 
 	console.log(pc.bold('\nAvailable Providers:\n'));
 
@@ -406,14 +386,8 @@ export async function listProviders(): Promise<void> {
 
 		const icon = hasKey ? pc.green('\u2713') : pc.red('\u2717');
 		const freeLabel =
-			provider.free === true
-				? ' [FREE]'
-				: provider.free === 'limited'
-					? ' [Free tier]'
-					: '';
-		console.log(
-			`  ${icon} ${pc.bold(provider.displayName)}${freeLabel}${statusLabel}`,
-		);
+			provider.free === true ? ' [FREE]' : provider.free === 'limited' ? ' [Free tier]' : '';
+		console.log(`  ${icon} ${pc.bold(provider.displayName)}${freeLabel}${statusLabel}`);
 		console.log(`    ${pc.dim(`Base: ${provider.baseUrl}`)}`);
 		console.log(`    ${pc.dim(`Env:  ${provider.envVar || 'none'}`)}`);
 		console.log(`    ${pc.dim(`${provider.models.length} models`)}\n`);
@@ -422,10 +396,7 @@ export async function listProviders(): Promise<void> {
 
 export async function listModels(providerId?: string): Promise<void> {
 	const config = loadUserConfig();
-	const [ollama, localFast] = await Promise.all([
-		probeOllama(),
-		probeLocalFast(),
-	]);
+	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
 
 	if (providerId) {
 		const provider = PROVIDERS.find((p) => p.id === providerId);
@@ -466,10 +437,7 @@ export async function listModels(providerId?: string): Promise<void> {
 	}
 }
 
-function printLocalFastModels(
-	localFast: LocalFastProbeResult,
-	provider: ProviderEntry,
-): void {
+function printLocalFastModels(localFast: LocalFastProbeResult, provider: ProviderEntry): void {
 	console.log(pc.bold(`\n${provider.displayName}:\n`));
 
 	if (!localFast.running) {
@@ -485,9 +453,7 @@ function printLocalFastModels(
 		]
 			.filter(Boolean)
 			.join(' ');
-		console.log(
-			`  ${pc.bold(m.id.padEnd(40))} Free (local)  ${ctx.padEnd(8)} ${features}`,
-		);
+		console.log(`  ${pc.bold(m.id.padEnd(40))} Free (local)  ${ctx.padEnd(8)} ${features}`);
 	}
 }
 
@@ -498,9 +464,7 @@ function printLocalModels(
 	console.log(pc.bold(`\n${provider.displayName}:\n`));
 
 	if (!ollama.running) {
-		console.log(
-			pc.dim('  Not running. Start it with the appropriate command.'),
-		);
+		console.log(pc.dim('  Not running. Start it with the appropriate command.'));
 		return;
 	}
 
@@ -521,39 +485,28 @@ function printLocalModels(
 	const curated = provider.models;
 	const curatedNotLocal = curated.filter((cm) => {
 		const base = cm.id.split(':')[0];
-		return !ollama.models.some(
-			(lm) => lm.name === cm.id || lm.name.startsWith(base),
-		);
+		return !ollama.models.some((lm) => lm.name === cm.id || lm.name.startsWith(base));
 	});
 
 	if (curatedNotLocal.length > 0) {
 		console.log(pc.dim(`\n  \u2500\u2500 Available to pull \u2500\u2500`));
 		for (const m of curatedNotLocal) {
-			console.log(
-				`  ${pc.dim(m.id.padEnd(35))} ${pc.dim(`ollama pull ${m.id}`)}`,
-			);
+			console.log(`  ${pc.dim(m.id.padEnd(35))} ${pc.dim(`ollama pull ${m.id}`)}`);
 		}
 	}
 }
 
-async function printProviderModels(
-	provider: ProviderEntry,
-	config?: UserConfig,
-): Promise<void> {
+async function printProviderModels(provider: ProviderEntry, config?: UserConfig): Promise<void> {
 	console.log(pc.bold(`\n${provider.displayName}:\n`));
 	const curatedIds = new Set(provider.models.map((m) => m.id));
 	const models = await getMergedModels(provider, config);
 	const remoteCount = models.length - curatedIds.size;
 	if (remoteCount > 0) {
-		console.log(
-			pc.dim(`  (${models.length} models, ${remoteCount} discovered remotely)`),
-		);
+		console.log(pc.dim(`  (${models.length} models, ${remoteCount} discovered remotely)`));
 	}
 	for (const m of models) {
 		const price =
-			m.inputPricePer1M === 0
-				? 'Free'
-				: `$${m.inputPricePer1M}/$${m.outputPricePer1M}`;
+			m.inputPricePer1M === 0 ? 'Free' : `$${m.inputPricePer1M}/$${m.outputPricePer1M}`;
 		const ctx = formatCtx(m.contextWindow);
 		const badges = [
 			m.supportsReasoning ? pc.cyan('think') : '',
@@ -561,9 +514,7 @@ async function printProviderModels(
 		]
 			.filter(Boolean)
 			.join(' ');
-		const aliases = m.aliases?.length
-			? pc.dim(` [${m.aliases.join(', ')}]`)
-			: '';
+		const aliases = m.aliases?.length ? pc.dim(` [${m.aliases.join(', ')}]`) : '';
 		const remote = !curatedIds.has(m.id) ? pc.dim(' [remote]') : '';
 		console.log(
 			`  ${pc.bold(m.id.padEnd(40))} ${price.padEnd(18)} ${ctx.padEnd(8)} ${badges}${aliases}${remote}`,

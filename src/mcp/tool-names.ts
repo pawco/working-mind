@@ -12,8 +12,7 @@ export const MCP_TOOL_NAMES: Record<string, Record<string, string>> = {
 		firecrawl_search: 'mcp__firecrawl__firecrawl_search',
 		firecrawl_map: 'mcp__firecrawl__firecrawl_map',
 		firecrawl_crawl: 'mcp__firecrawl__firecrawl_crawl',
-		firecrawl_check_crawl_status:
-			'mcp__firecrawl__firecrawl_check_crawl_status',
+		firecrawl_check_crawl_status: 'mcp__firecrawl__firecrawl_check_crawl_status',
 		firecrawl_extract: 'mcp__firecrawl__firecrawl_extract',
 	},
 	arxiv: {
@@ -61,13 +60,8 @@ export const MCP_TOOL_NAMES: Record<string, Record<string, string>> = {
 	},
 };
 
-export function getNamespacedToolName(
-	serverKey: string,
-	toolName: string,
-): string {
-	return (
-		MCP_TOOL_NAMES[serverKey]?.[toolName] ?? `mcp__${serverKey}__${toolName}`
-	);
+export function getNamespacedToolName(serverKey: string, toolName: string): string {
+	return MCP_TOOL_NAMES[serverKey]?.[toolName] ?? `mcp__${serverKey}__${toolName}`;
 }
 
 export function validateToolReference(

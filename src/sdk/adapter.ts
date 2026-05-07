@@ -3,11 +3,7 @@ import type { ToolDef } from './tool.js';
 
 export interface ProviderAdapter {
 	format: 'openai' | 'anthropic' | 'ollama';
-	stream(
-		messages: any[],
-		tools: any[],
-		config: ProviderConfig,
-	): AsyncGenerator<StreamEvent>;
+	stream(messages: any[], tools: any[], config: ProviderConfig): AsyncGenerator<StreamEvent>;
 	formatTools(tools: ToolDef[]): any[];
 	buildMessages(messages: any[], systemPrompt: string): any[];
 	buildToolResult(toolCallId: string, result: string, isError: boolean): any;

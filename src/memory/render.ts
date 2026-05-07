@@ -1,16 +1,6 @@
-import {
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	readFileSync,
-	writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-	getConfigDir,
-	getDefaultMemoryPath,
-	getMemoriesDir,
-} from '../paths.js';
+import { getConfigDir, getDefaultMemoryPath, getMemoriesDir } from '../paths.js';
 import type { MemoryEntity, MemoryGraph, MemoryRelation } from '../schemas.js';
 import { generateIndexMarkdown } from './auto-link.js';
 
@@ -53,11 +43,7 @@ export function parseMemoryJsonl(content: string): MemoryGraph {
 	return { entities, relations };
 }
 
-export function filterGraph(
-	graph: MemoryGraph,
-	query?: string,
-	depth?: number,
-): MemoryGraph {
+export function filterGraph(graph: MemoryGraph, query?: string, depth?: number): MemoryGraph {
 	if (!query) return graph;
 	const lower = query.toLowerCase();
 	const seedNames = new Set(
@@ -78,11 +64,7 @@ export function filterGraph(
 	return { entities: filteredEntities, relations: filteredRelations };
 }
 
-function expandWithDepth(
-	graph: MemoryGraph,
-	seeds: Set<string>,
-	depth: number,
-): Set<string> {
+function expandWithDepth(graph: MemoryGraph, seeds: Set<string>, depth: number): Set<string> {
 	let current = new Set(seeds);
 	for (let i = 0; i < depth; i++) {
 		const next = new Set(current);
@@ -105,15 +87,13 @@ function escapeDot(s: string): string {
 }
 
 export function toMermaid(graph: MemoryGraph): string {
-	if (graph.entities.length === 0)
-		return 'graph LR\n  empty[(No entities in memory)]';
+	if (graph.entities.length === 0) return 'graph LR\n  empty[(No entities in memory)]';
 	const lines: string[] = ['graph LR'];
 	const ids = new Map<string, string>();
 	for (const e of graph.entities) {
 		const id = sanitizeMermaidId(e.name);
 		ids.set(e.name, id);
-		const obsLabel =
-			e.observations.length > 0 ? ` (${e.observations.length} obs)` : '';
+		const obsLabel = e.observations.length > 0 ? ` (${e.observations.length} obs)` : '';
 		const label = `${e.name}\\n${e.entityType}${obsLabel}`;
 		lines.push(`  ${id}["${label}"]`);
 	}
@@ -135,9 +115,7 @@ export function toDot(graph: MemoryGraph): string {
 	for (const e of graph.entities) {
 		const tooltip = escapeDot(e.observations.join('\\n'));
 		const label = escapeDot(`${e.name}\\n${e.entityType}`);
-		lines.push(
-			`  "${escapeDot(e.name)}" [label="${label}" tooltip="${tooltip}"];`,
-		);
+		lines.push(`  "${escapeDot(e.name)}" [label="${label}" tooltip="${tooltip}"];`);
 	}
 	for (const r of graph.relations) {
 		lines.push(
@@ -167,8 +145,7 @@ export function toAsciiGraph(graph: MemoryGraph): string {
 		if (lines.length > 0) lines.push('');
 		lines.push('Isolated entities:');
 		for (const e of isolated) {
-			const obs =
-				e.observations.length > 0 ? ` (${e.observations.length} obs)` : '';
+			const obs = e.observations.length > 0 ? ` (${e.observations.length} obs)` : '';
 			lines.push(`  ${e.name} [${e.entityType}]${obs}`);
 		}
 	}
@@ -203,8 +180,7 @@ export function toTreeView(graph: MemoryGraph): string {
 			const isLast = i === entities.length - 1;
 			const branch = isLast ? '\u2514\u2500\u2500 ' : '\u251c\u2500\u2500 ';
 			const pipe = isLast ? '    ' : '\u2502   ';
-			const obsCount =
-				e.observations.length > 0 ? ` (${e.observations.length} obs)` : '';
+			const obsCount = e.observations.length > 0 ? ` (${e.observations.length} obs)` : '';
 			lines.push(`${branch}${e.name}${obsCount}`);
 			for (const obs of e.observations) {
 				lines.push(`${pipe}\u251c\u2500\u2500 ${obs}`);
@@ -215,15 +191,9 @@ export function toTreeView(graph: MemoryGraph): string {
 			}
 			const inRels = incoming.get(e.name) || [];
 			for (const r of inRels) {
-				lines.push(
-					`${pipe}<\u2500\u2500\u2500 ${r.relationType} <-- ${r.from}`,
-				);
+				lines.push(`${pipe}<\u2500\u2500\u2500 ${r.relationType} <-- ${r.from}`);
 			}
-			if (
-				e.observations.length === 0 &&
-				outRels.length === 0 &&
-				inRels.length === 0
-			) {
+			if (e.observations.length === 0 && outRels.length === 0 && inRels.length === 0) {
 				lines.push(`${pipe}(no details)`);
 			}
 		}
@@ -259,9 +229,7 @@ export function toStats(graph: MemoryGraph): string {
 	return lines.join('\n');
 }
 
-export function getActiveStoreName(config?: {
-	lastMemoryStore?: string;
-}): string {
+export function getActiveStoreName(config?: { lastMemoryStore?: string }): string {
 	return config?.lastMemoryStore || 'default';
 }
 
@@ -294,10 +262,7 @@ export function listMemoryStores(): MemoryStoreInfo[] {
 			try {
 				const content = readFileSync(path, 'utf-8');
 				const graph = parseMemoryJsonl(content);
-				const obs = graph.entities.reduce(
-					(sum, e) => sum + e.observations.length,
-					0,
-				);
+				const obs = graph.entities.reduce((sum, e) => sum + e.observations.length, 0);
 				return {
 					name,
 					path,
@@ -330,9 +295,7 @@ export function ensureMemoriesDir(): string {
 	return dir;
 }
 
-export function searchAcrossStores(
-	query: string,
-): { store: string; matches: number }[] {
+export function searchAcrossStores(query: string): { store: string; matches: number }[] {
 	const stores = listMemoryStores();
 	const lower = query.toLowerCase();
 	const results: { store: string; matches: number }[] = [];
@@ -358,10 +321,7 @@ export function searchAcrossStores(
 	return results;
 }
 
-export function formatStoreList(
-	stores: MemoryStoreInfo[],
-	activeName: string,
-): string {
+export function formatStoreList(stores: MemoryStoreInfo[], activeName: string): string {
 	const lines: string[] = ['Memory Stores:'];
 	for (const s of stores) {
 		const marker = s.name === activeName ? '●' : '○';
@@ -387,12 +347,8 @@ export function getKnowledgeIndexPath(storeName?: string): string {
 	return base;
 }
 
-export function writeKnowledgeIndex(
-	graph: MemoryGraph,
-	storeName?: string,
-): void {
-	const indexDir =
-		storeName && storeName !== 'default' ? getMemoriesDir() : getConfigDir();
+export function writeKnowledgeIndex(graph: MemoryGraph, storeName?: string): void {
+	const indexDir = storeName && storeName !== 'default' ? getMemoriesDir() : getConfigDir();
 	if (!existsSync(indexDir)) mkdirSync(indexDir, { recursive: true });
 	const indexPath = getKnowledgeIndexPath(storeName);
 	const content = generateIndexMarkdown(graph);

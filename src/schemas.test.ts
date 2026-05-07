@@ -17,10 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe('packManifestSchema', () => {
 	it('accepts valid starter pack', () => {
-		const raw = readFileSync(
-			join(__dirname, '..', 'packs', 'starter', 'pack.json'),
-			'utf-8',
-		);
+		const raw = readFileSync(join(__dirname, '..', 'packs', 'starter', 'pack.json'), 'utf-8');
 		const result = packManifestSchema.safeParse(JSON.parse(raw));
 		expect(result.success).toBe(true);
 		if (result.success) {
@@ -230,10 +227,7 @@ describe('partialUserConfigSchema', () => {
 
 describe('providersDataSchema', () => {
 	it('accepts bundled providers.jsonc', () => {
-		const raw = readFileSync(
-			join(__dirname, '..', 'data', 'providers.jsonc'),
-			'utf-8',
-		);
+		const raw = readFileSync(join(__dirname, '..', 'data', 'providers.jsonc'), 'utf-8');
 		const data = JSON.parse(stripJsonComments(raw));
 		const result = providersDataSchema.safeParse(data);
 		expect(result.success).toBe(true);

@@ -114,37 +114,28 @@ describe('substituteCommandVars', () => {
 	};
 
 	it('resolves $CWD to process.cwd()', () => {
-		const result = substituteCommandVars(
-			['npx', '-y', 'server', '$CWD'],
-			baseConfig,
-		);
+		const result = substituteCommandVars(['npx', '-y', 'server', '$CWD'], baseConfig);
 		expect(result.args).toEqual(['npx', '-y', 'server', process.cwd()]);
 		expect(result.unresolvedVars).toEqual([]);
 	});
 
 	it('resolves $HOME to homedir()', () => {
-		const result = substituteCommandVars(
-			['npx', '-y', 'server', '$HOME'],
-			baseConfig,
-		);
+		const result = substituteCommandVars(['npx', '-y', 'server', '$HOME'], baseConfig);
 		expect(result.args[3]).not.toBe('$HOME');
 		expect(result.unresolvedVars).toEqual([]);
 	});
 
 	it('resolves $INPUT_DIR from env', () => {
-		const result = substituteCommandVars(
-			['npx', '-y', 'server', '$INPUT_DIR'],
-			{ ...baseConfig, env: { INPUT_DIR: '/tmp/scan' } },
-		);
+		const result = substituteCommandVars(['npx', '-y', 'server', '$INPUT_DIR'], {
+			...baseConfig,
+			env: { INPUT_DIR: '/tmp/scan' },
+		});
 		expect(result.args).toEqual(['npx', '-y', 'server', '/tmp/scan']);
 		expect(result.unresolvedVars).toEqual([]);
 	});
 
 	it('reports unresolved $INPUT_DIR when env is missing', () => {
-		const result = substituteCommandVars(
-			['npx', '-y', 'server', '$INPUT_DIR'],
-			baseConfig,
-		);
+		const result = substituteCommandVars(['npx', '-y', 'server', '$INPUT_DIR'], baseConfig);
 		expect(result.args[3]).toBe('$INPUT_DIR');
 		expect(result.unresolvedVars).toEqual(['$INPUT_DIR']);
 	});
@@ -159,30 +150,20 @@ describe('substituteCommandVars', () => {
 	});
 
 	it('leaves $PACK_DIR unresolved when no packDir', () => {
-		const result = substituteCommandVars(
-			['npx', '-y', 'server', '$PACK_DIR'],
-			baseConfig,
-		);
+		const result = substituteCommandVars(['npx', '-y', 'server', '$PACK_DIR'], baseConfig);
 		expect(result.args[3]).toBe('$PACK_DIR');
 		expect(result.unresolvedVars).toEqual([]);
 	});
 
 	it('resolves embedded vars like --root=$CWD', () => {
-		const result = substituteCommandVars(
-			['npx', '-y', 'server', '--root=$CWD'],
-			baseConfig,
-		);
+		const result = substituteCommandVars(['npx', '-y', 'server', '--root=$CWD'], baseConfig);
 		expect(result.args[3]).toBe(`--root=${process.cwd()}`);
 	});
 });
 
 describe('enrichMcpError', () => {
 	it('detects unknown npm package on -32000', () => {
-		const msg = enrichMcpError('MCP error -32000: Connection closed', [
-			'npx',
-			'-y',
-			'fs-mcp',
-		]);
+		const msg = enrichMcpError('MCP error -32000: Connection closed', ['npx', '-y', 'fs-mcp']);
 		expect(msg).toContain('not a known MCP server');
 		expect(msg).toContain('fs-mcp');
 	});
@@ -208,10 +189,11 @@ describe('enrichMcpError', () => {
 	});
 
 	it('detects Python dependency issue', () => {
-		const msg = enrichMcpError(
-			'MCP error -32000: Python 3.11 or 3.12 not found',
-			['npx', '-y', 'arxiv-mcp-server'],
-		);
+		const msg = enrichMcpError('MCP error -32000: Python 3.11 or 3.12 not found', [
+			'npx',
+			'-y',
+			'arxiv-mcp-server',
+		]);
 		expect(msg).toContain('requires Python');
 	});
 

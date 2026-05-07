@@ -19,15 +19,10 @@ export function findProvider(providerId: string): ProviderEntry | undefined {
 	return PROVIDERS.find((p) => p.id === providerId);
 }
 
-export function findModel(
-	providerId: string,
-	modelId: string,
-): ModelEntry | undefined {
+export function findModel(providerId: string, modelId: string): ModelEntry | undefined {
 	const provider = findProvider(providerId);
 	if (!provider) return undefined;
-	return provider.models.find(
-		(m) => m.id === modelId || m.aliases?.includes(modelId),
-	);
+	return provider.models.find((m) => m.id === modelId || m.aliases?.includes(modelId));
 }
 
 export function getProviderModels(providerId: string): ModelEntry[] {
@@ -45,9 +40,7 @@ export function getAllModelsSorted(): {
 			result.push({ provider, model });
 		}
 	}
-	return result.sort(
-		(a, b) => a.model.outputPricePer1M - b.model.outputPricePer1M,
-	);
+	return result.sort((a, b) => a.model.outputPricePer1M - b.model.outputPricePer1M);
 }
 
 export function getDefaultModel(): string {

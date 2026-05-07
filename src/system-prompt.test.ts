@@ -42,8 +42,7 @@ describe('refreshKnowledgeIndex', () => {
 
 	it('handles prompt with only knowledge index at end', () => {
 		mockReadKnowledgeIndex.mockReturnValue('# Knowledge Index\nEntities: 5');
-		const prompt =
-			'You are a helpful assistant.\n\n## Knowledge Index\nOld data';
+		const prompt = 'You are a helpful assistant.\n\n## Knowledge Index\nOld data';
 		const result = refreshKnowledgeIndex(prompt);
 		expect(result).toContain('Entities: 5');
 		expect(result).not.toContain('Old data');

@@ -42,9 +42,7 @@ describe('MCP catalog', () => {
 		const fc = KNOWN_SERVERS.find((s) => s.id === 'firecrawl');
 		expect(fc).toBeDefined();
 		expect(fc?.package).toBe('firecrawl-mcp');
-		expect(
-			fc?.envVars.some((e) => e.name === 'FIRECRAWL_API_KEY' && e.required),
-		).toBe(true);
+		expect(fc?.envVars.some((e) => e.name === 'FIRECRAWL_API_KEY' && e.required)).toBe(true);
 	});
 
 	it('includes arxiv with no env vars', () => {

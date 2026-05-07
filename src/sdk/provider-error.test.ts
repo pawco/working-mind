@@ -10,9 +10,7 @@ import {
 describe('classifyProviderError', () => {
 	it('classifies no API key errors', () => {
 		const result = classifyProviderError(
-			new Error(
-				'No API key configured for OpenAI. Use /connect to set one up.',
-			),
+			new Error('No API key configured for OpenAI. Use /connect to set one up.'),
 		);
 		expect(result.category).toBe('no_api_key');
 		expect(result.canRetry).toBe(false);
@@ -20,13 +18,10 @@ describe('classifyProviderError', () => {
 	});
 
 	it('classifies OpenAI SDK RateLimitError (429)', () => {
-		const err = Object.assign(
-			new Error('Rate limit reached for default-global'),
-			{
-				constructor: { name: 'RateLimitError' },
-				status: 429,
-			},
-		);
+		const err = Object.assign(new Error('Rate limit reached for default-global'), {
+			constructor: { name: 'RateLimitError' },
+			status: 429,
+		});
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('rate_limit');
 		expect(result.statusCode).toBe(429);
@@ -67,18 +62,12 @@ describe('classifyProviderError', () => {
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('rate_limit');
 		expect(result.statusCode).toBe(429);
-		expect(result.providerMessage).toBe(
-			'This request would exceed the rate limit',
-		);
+		expect(result.providerMessage).toBe('This request would exceed the rate limit');
 		expect(result.canRetry).toBe(true);
 	});
 
 	it('classifies AnthropicProviderError with authentication_error type', () => {
-		const err = new AnthropicProviderError(
-			401,
-			'authentication_error',
-			'invalid x-api-key',
-		);
+		const err = new AnthropicProviderError(401, 'authentication_error', 'invalid x-api-key');
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('auth');
 		expect(result.statusCode).toBe(401);
@@ -86,11 +75,7 @@ describe('classifyProviderError', () => {
 	});
 
 	it('classifies AnthropicProviderError with overloaded_error type', () => {
-		const err = new AnthropicProviderError(
-			529,
-			'overloaded_error',
-			'Overloaded',
-		);
+		const err = new AnthropicProviderError(529, 'overloaded_error', 'Overloaded');
 		const result = classifyProviderError(err);
 		expect(result.category).toBe('overloaded');
 		expect(result.canRetry).toBe(true);
@@ -136,9 +121,7 @@ describe('classifyProviderError', () => {
 	});
 
 	it('falls back to unknown for unrecognized errors', () => {
-		const result = classifyProviderError(
-			new Error('Something unexpected happened'),
-		);
+		const result = classifyProviderError(new Error('Something unexpected happened'));
 		expect(result.category).toBe('unknown');
 		expect(result.canRetry).toBe(true);
 	});

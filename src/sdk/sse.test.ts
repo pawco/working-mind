@@ -12,12 +12,8 @@ describe('parseSSE', () => {
 		const stream = new ReadableStream({
 			async start(controller) {
 				const encoder = new TextEncoder();
-				controller.enqueue(
-					encoder.encode('data: {"type":"text","content":"hello"}\n\n'),
-				);
-				controller.enqueue(
-					encoder.encode('data: {"type":"text","content":"world"}\n\n'),
-				);
+				controller.enqueue(encoder.encode('data: {"type":"text","content":"hello"}\n\n'));
+				controller.enqueue(encoder.encode('data: {"type":"text","content":"world"}\n\n'));
 				controller.close();
 			},
 		});
@@ -37,9 +33,7 @@ describe('parseSSE', () => {
 			async start(controller) {
 				const encoder = new TextEncoder();
 				controller.enqueue(
-					encoder.encode(
-						'data: {"type":"text","content":"hi"}\n\ndata: [DONE]\n\n',
-					),
+					encoder.encode('data: {"type":"text","content":"hi"}\n\ndata: [DONE]\n\n'),
 				);
 				controller.close();
 			},
@@ -56,9 +50,7 @@ describe('parseSSE', () => {
 		const stream = new ReadableStream({
 			async start(controller) {
 				const encoder = new TextEncoder();
-				controller.enqueue(
-					encoder.encode('data: not-json\n\ndata: {"ok":true}\n\n'),
-				);
+				controller.enqueue(encoder.encode('data: not-json\n\ndata: {"ok":true}\n\n'));
 				controller.close();
 			},
 		});

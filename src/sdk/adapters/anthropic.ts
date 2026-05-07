@@ -57,14 +57,11 @@ export class AnthropicAdapter implements ProviderAdapter {
 			);
 		}
 
-		const res = await fetch(
-			opts.baseUrl || 'https://api.anthropic.com/v1/messages',
-			{
-				method: 'POST',
-				headers: this.getAuthHeaders(opts.apiKey),
-				body: JSON.stringify(bodyParams),
-			},
-		);
+		const res = await fetch(opts.baseUrl || 'https://api.anthropic.com/v1/messages', {
+			method: 'POST',
+			headers: this.getAuthHeaders(opts.apiKey),
+			body: JSON.stringify(bodyParams),
+		});
 		if (!res.ok) {
 			let errorType: string | null = null;
 			let errorMessage = `HTTP ${res.status}`;
@@ -84,10 +81,7 @@ export class AnthropicAdapter implements ProviderAdapter {
 		let toolCallCount = 0;
 		if (!res.body) throw new Error('No response body');
 		for await (const event of parseSSE(res.body)) {
-			if (
-				event.type === 'message_start' &&
-				event.message?.usage?.input_tokens
-			) {
+			if (event.type === 'message_start' && event.message?.usage?.input_tokens) {
 				lastInputTokens = event.message.usage.input_tokens;
 			}
 			if (event.type === 'message_delta') {
@@ -102,35 +96,20 @@ export class AnthropicAdapter implements ProviderAdapter {
 					stopReason = event.delta.stop_reason;
 				}
 			}
-			if (
-				event.type === 'content_block_start' &&
-				event.content_block?.type === 'thinking'
-			) {
+			if (event.type === 'content_block_start' && event.content_block?.type === 'thinking') {
 			}
-			if (
-				event.type === 'content_block_delta' &&
-				event.delta?.type === 'thinking_delta'
-			) {
+			if (event.type === 'content_block_delta' && event.delta?.type === 'thinking_delta') {
 				yield { type: 'thinking', content: event.delta.thinking };
 			}
-			if (
-				event.type === 'content_block_start' &&
-				event.content_block?.type === 'tool_use'
-			) {
+			if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
 				currentToolId = event.content_block.id;
 				currentToolName = event.content_block.name;
 				currentToolArgs = '';
 			}
-			if (
-				event.type === 'content_block_delta' &&
-				event.delta?.type === 'input_json_delta'
-			) {
+			if (event.type === 'content_block_delta' && event.delta?.type === 'input_json_delta') {
 				currentToolArgs += event.delta.partial_json;
 			}
-			if (
-				event.type === 'content_block_delta' &&
-				event.delta?.type === 'text_delta'
-			) {
+			if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
 				yield { type: 'text', content: event.delta.text };
 			}
 			if (event.type === 'content_block_stop' && currentToolName) {

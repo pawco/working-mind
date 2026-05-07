@@ -115,8 +115,7 @@ export class OpenAICompatAdapter implements ProviderAdapter {
 				}
 			}
 		}
-		if (currentToolCall)
-			yield { type: 'tool_call', ...currentToolCall } as StreamEvent;
+		if (currentToolCall) yield { type: 'tool_call', ...currentToolCall } as StreamEvent;
 
 		if (DEBUG) {
 			console.error(

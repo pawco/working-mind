@@ -59,10 +59,7 @@ describe('parseMemoryJsonl', () => {
 		expect(graph.entities).toHaveLength(4);
 		expect(graph.relations).toHaveLength(2);
 		expect(graph.entities[0].name).toBe('Svelte');
-		expect(graph.entities[0].observations).toEqual([
-			'compiler-based',
-			'runes in v5',
-		]);
+		expect(graph.entities[0].observations).toEqual(['compiler-based', 'runes in v5']);
 		expect(graph.relations[0].relationType).toBe('competes_with');
 	});
 
@@ -136,9 +133,7 @@ describe('toMermaid', () => {
 
 	it('sanitizes entity names with special chars', () => {
 		const graph: MemoryGraph = {
-			entities: [
-				{ name: 'my-project', entityType: 'project', observations: [] },
-			],
+			entities: [{ name: 'my-project', entityType: 'project', observations: [] }],
 			relations: [],
 		};
 		const result = toMermaid(graph);
@@ -161,9 +156,7 @@ describe('toDot', () => {
 
 	it('escapes double quotes in names', () => {
 		const graph: MemoryGraph = {
-			entities: [
-				{ name: 'say "hello"', entityType: 'phrase', observations: [] },
-			],
+			entities: [{ name: 'say "hello"', entityType: 'phrase', observations: [] }],
 			relations: [],
 		};
 		const result = toDot(graph);

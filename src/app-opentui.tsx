@@ -7,13 +7,7 @@ import {
 	type PasteEvent,
 } from '@opentui/core';
 import { createRoot, useKeyboard, useTerminalDimensions } from '@opentui/react';
-import {
-	createElement as h,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from 'react';
+import { createElement as h, useCallback, useEffect, useRef, useState } from 'react';
 import { listMdFiles } from './builtins/ingest-cmd.js';
 import type { CommandRegistry } from './command-registry.js';
 import type { McpEnvVarDef } from './config.js';
@@ -31,10 +25,7 @@ import type { CommandContext, HistoryEntry } from './sdk/command.js';
 import { calculateTurnCost } from './sdk/cost-calc.js';
 import { debounce } from './sdk/debounce.js';
 import { RequestCancelledError, runAgent } from './sdk/loop.js';
-import {
-	classifyProviderError,
-	formatErrorForDisplay,
-} from './sdk/provider-error.js';
+import { classifyProviderError, formatErrorForDisplay } from './sdk/provider-error.js';
 import { findProvider } from './sdk/provider-registry.js';
 import {
 	cacheApiKey,
@@ -73,9 +64,7 @@ function MultiAgentApp({
 	const dims = useTerminalDimensions();
 	const termRows = dims.height || 40;
 	const termCols = dims.width || 120;
-	const [activeId, setActiveId] = useState<string>(
-		registry.getActive()?.id || '',
-	);
+	const [activeId, setActiveId] = useState<string>(registry.getActive()?.id || '');
 	const [_tick, setTick] = useState(0);
 	const [input, setInput] = useState('');
 	const [inputCursor, setInputCursor] = useState(0);
@@ -83,9 +72,7 @@ function MultiAgentApp({
 	const [inputHistoryIdx, setInputHistoryIdx] = useState(-1);
 	const [history, setHistory] = useState<HistoryEntry[]>([]);
 	const [isStreaming, setIsStreaming] = useState(false);
-	const confirmationResolveRef = useRef<((approved: boolean) => void) | null>(
-		null,
-	);
+	const confirmationResolveRef = useRef<((approved: boolean) => void) | null>(null);
 	const [isExecuting, setIsExecuting] = useState(false);
 	const [_currentTool, setCurrentTool] = useState<string | null>(null);
 	const [waitingConfirmation, setWaitingConfirmation] = useState<{
@@ -106,17 +93,13 @@ function MultiAgentApp({
 		completionTokens: number;
 	}>({ promptTokens: 0, completionTokens: 0 });
 	const [sessionCost, setSessionCost] = useState(0);
-	const [mcpServers, setMcpServers] = useState<McpServerInfo[]>(
-		mcpRegistry.listServers(),
-	);
+	const [mcpServers, setMcpServers] = useState<McpServerInfo[]>(mcpRegistry.listServers());
 	const [scrolledUp, setScrolledUp] = useState(false);
 	const [rawMode, _setRawMode] = useState(false);
 	const [expandAll, setExpandAll] = useState(false);
 	const [showHelp, setShowHelp] = useState(false);
 	const [turnCount, setTurnCount] = useState(0);
-	const [projects, setProjects] = useState<SessionSummary[]>(
-		registry.listSessions(),
-	);
+	const [projects, setProjects] = useState<SessionSummary[]>(registry.listSessions());
 	const [cwdFiles, setCwdFiles] = useState<string[]>(listMdFiles());
 	const [wizardActive, setWizardActive] = useState(false);
 	const wizardRef = useRef<McpWizardHandle>(null);
@@ -150,17 +133,11 @@ function MultiAgentApp({
 	const thinkingContentRef = useRef('');
 	const currentTurnIdRef = useRef<number>(0);
 	const lastToolCallTimeRef = useRef<number>(0);
-	const flushTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-		undefined,
-	);
+	const flushTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 	const abortControllerRef = useRef<AbortController | null>(null);
 	const lastEscTimeRef = useRef(0);
-	const runAgentTurnRef = useRef<(text: string, agent: any) => Promise<void>>(
-		async () => {},
-	);
-	const crossLinkBatchRef = useRef<
-		{ from: string; to: string; relationType: string }[]
-	>([]);
+	const runAgentTurnRef = useRef<(text: string, agent: any) => Promise<void>>(async () => {});
+	const crossLinkBatchRef = useRef<{ from: string; to: string; relationType: string }[]>([]);
 	const rebuildIndexRef = useRef(
 		debounce(() => {
 			const storeName = config.userConfig?.lastMemoryStore || 'default';
@@ -173,9 +150,7 @@ function MultiAgentApp({
 
 				const activeAgent = registry.getActive();
 				if (activeAgent) {
-					activeAgent.systemPrompt = refreshKnowledgeIndex(
-						activeAgent.systemPrompt,
-					);
+					activeAgent.systemPrompt = refreshKnowledgeIndex(activeAgent.systemPrompt);
 				}
 
 				const crossLinks = findCrossLinks(graph);
@@ -398,16 +373,11 @@ function MultiAgentApp({
 					}
 					setHistory(entries);
 					setMsgCount(entries.length);
-					const totalChars = entries.reduce(
-						(sum, e) => sum + e.content.length,
-						0,
-					);
+					const totalChars = entries.reduce((sum, e) => sum + e.content.length, 0);
 					setCharCount(totalChars);
 				} else {
 					setHistory(
-						message
-							? [{ id: Date.now(), role: 'assistant', content: message }]
-							: [],
+						message ? [{ id: Date.now(), role: 'assistant', content: message }] : [],
 					);
 				}
 			}
@@ -453,8 +423,7 @@ function MultiAgentApp({
 					deactivateSkill,
 					mcpRegistry,
 					setPersona: (persona: string) => registry.setPersona(persona),
-					setCustomPrompt: (promptText: string) =>
-						registry.setCustomPrompt(promptText),
+					setCustomPrompt: (promptText: string) => registry.setCustomPrompt(promptText),
 					getUserConfig: () => config.userConfig,
 					writeUserConfig: (uc: any) => writeUserConfig(uc),
 				};
@@ -476,9 +445,7 @@ function MultiAgentApp({
 					const pack = resolved.args
 						? config.packs.find((p: any) => p.name === resolved.args)
 						: null;
-					const firstPersona = pack
-						? Object.keys(pack.personas || {})[0]
-						: undefined;
+					const firstPersona = pack ? Object.keys(pack.personas || {})[0] : undefined;
 					const newAgent = registry.createAgent({
 						name,
 						persona: firstPersona || undefined,
@@ -537,9 +504,7 @@ function MultiAgentApp({
 						},
 					]);
 				} else if (result.type === 'add-pack-agent') {
-					const pack = config.packs.find(
-						(p: any) => p.name === result.packName,
-					);
+					const pack = config.packs.find((p: any) => p.name === result.packName);
 					if (pack) {
 						const firstPersona = Object.keys(pack.personas || {})[0];
 						const newAgent = registry.createAgent({
@@ -646,10 +611,7 @@ function MultiAgentApp({
 					try {
 						registry.rebuildForTask(agent, agent.tools);
 					} catch {
-						agent.systemPrompt =
-							savedSystemPrompt +
-							'\n\n## Current Task\n' +
-							(agent.currentTask || '');
+						agent.systemPrompt = `${savedSystemPrompt}\n\n## Current Task\n${agent.currentTask || ''}`;
 					}
 
 					agent.messages.push({ role: 'user', content: result.content });
@@ -733,9 +695,7 @@ function MultiAgentApp({
 						if (streamingEntryIdRef.current) {
 							const sId = streamingEntryIdRef.current;
 							setHistory((prev) =>
-								prev.map((e) =>
-									e.id === sId ? { ...e, streaming: false } : e,
-								),
+								prev.map((e) => (e.id === sId ? { ...e, streaming: false } : e)),
 							);
 						}
 						const id = Date.now();
@@ -784,8 +744,7 @@ function MultiAgentApp({
 					scheduleFlush();
 				},
 				onToolCall: async (name: string, args: any) => {
-					const argsStr =
-						typeof args === 'string' ? args : JSON.stringify(args);
+					const argsStr = typeof args === 'string' ? args : JSON.stringify(args);
 					setTurnCount((c) => c + 1);
 					flushStreamingBuffers();
 					if (flushTimerRef.current) {
@@ -807,11 +766,7 @@ function MultiAgentApp({
 						thinkingEntryIdRef.current = 0;
 					}
 					const tool = agent.tools.find((tool: any) => tool.name === name);
-					if (
-						tool &&
-						!config.autoApprove &&
-						shouldConfirm(tool, config.userConfig)
-					) {
+					if (tool && !config.autoApprove && shouldConfirm(tool, config.userConfig)) {
 						setWaitingConfirmation({ name, args: argsStr });
 						setCurrentTool(name);
 						setHistory((prev) => [
@@ -838,8 +793,7 @@ function MultiAgentApp({
 						{
 							id: toolCallTime,
 							role: 'tool_call',
-							content:
-								argsStr.length > 200 ? `${argsStr.slice(0, 200)}...` : argsStr,
+							content: argsStr.length > 200 ? `${argsStr.slice(0, 200)}...` : argsStr,
 							name,
 							parentId: turnId,
 							startTime: toolCallTime,
@@ -886,9 +840,7 @@ function MultiAgentApp({
 						output = JSON.stringify(toolResult, null, 2);
 					}
 					const capped =
-						output.length > 8000
-							? `${output.slice(0, 8000)}\n...truncated`
-							: output;
+						output.length > 8000 ? `${output.slice(0, 8000)}\n...truncated` : output;
 					const toolEndTime = Date.now();
 					setHistory((prev) => [
 						...prev,
@@ -929,9 +881,7 @@ function MultiAgentApp({
 				clearTimeout(flushTimerRef.current);
 				flushTimerRef.current = undefined;
 			}
-			setHistory((prev) =>
-				prev.map((e) => (e.streaming ? { ...e, streaming: false } : e)),
-			);
+			setHistory((prev) => prev.map((e) => (e.streaming ? { ...e, streaming: false } : e)));
 			setHistory((prev) => {
 				const hasAssistant = prev.some(
 					(e) => e.role === 'assistant' && e.parentId === turnId,
@@ -975,9 +925,7 @@ function MultiAgentApp({
 			setMsgCount((m) => m + 1);
 			setCharCount((c) => c + result.length);
 		} catch (err: any) {
-			setHistory((prev) =>
-				prev.map((e) => (e.streaming ? { ...e, streaming: false } : e)),
-			);
+			setHistory((prev) => prev.map((e) => (e.streaming ? { ...e, streaming: false } : e)));
 			if (err instanceof RequestCancelledError) {
 				agent.messages.push({ role: 'assistant', content: 'Cancelled.' });
 				setHistory((prev) => [
@@ -1043,9 +991,7 @@ function MultiAgentApp({
 			}
 
 			if (isStreaming) return;
-			setInput(
-				(p) => p.slice(0, inputCursor) + sanitized + p.slice(inputCursor),
-			);
+			setInput((p) => p.slice(0, inputCursor) + sanitized + p.slice(inputCursor));
 			setInputCursor((c) => c + sanitized.length);
 			setInputHistoryIdx(-1);
 		},
@@ -1302,12 +1248,7 @@ function MultiAgentApp({
 			return;
 		}
 
-		if (
-			(key === 'return' || key === 'linefeed') &&
-			!shift &&
-			input.trim() &&
-			!isStreaming
-		) {
+		if ((key === 'return' || key === 'linefeed') && !shift && input.trim() && !isStreaming) {
 			setInputHistory((prev) => [input, ...prev.slice(0, 50)]);
 			setInputHistoryIdx(-1);
 			handleSubmit(input);
@@ -1415,8 +1356,7 @@ function MultiAgentApp({
 				turnCount,
 				maxTurns: config.maxTurns,
 				packName:
-					active.packName ||
-					(config.packs.length > 0 ? config.packs[0].name : undefined),
+					active.packName || (config.packs.length > 0 ? config.packs[0].name : undefined),
 				mcpSummary:
 					mcpServers.length > 0
 						? {
@@ -1450,8 +1390,7 @@ function MultiAgentApp({
 				waitingCmdConfirmation: !!waitingCmdConfirmation,
 				cmdConfirmationMessage: waitingCmdConfirmation?.message ?? '',
 				packName:
-					active.packName ||
-					(config.packs.length > 0 ? config.packs[0].name : undefined),
+					active.packName || (config.packs.length > 0 ? config.packs[0].name : undefined),
 				model: active.model || config.model,
 				provider: (active.model || config.model).includes('/')
 					? (active.model || config.model).split('/')[0]

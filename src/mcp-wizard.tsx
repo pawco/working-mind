@@ -1,10 +1,4 @@
-import {
-	forwardRef,
-	createElement as h,
-	useCallback,
-	useImperativeHandle,
-	useState,
-} from 'react';
+import { forwardRef, createElement as h, useCallback, useImperativeHandle, useState } from 'react';
 import type { McpEnvVarDef, McpServerConfig } from './config.js';
 import { loadUserConfig, writeUserConfig } from './config.js';
 import type { McpRegistry, McpServerInfo } from './mcp/registry.js';
@@ -57,173 +51,100 @@ export interface McpWizardProps {
 	reconnectTarget?: ReconnectTarget;
 }
 
-export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
-	function McpWizard(
-		{ mcpRegistry, onDone, width: _width, reconnectTarget },
-		ref,
-	) {
-		const [step, setStep] = useState<WizardStep>(() => {
-			if (reconnectTarget && reconnectTarget.requiredEnvVars.length > 0) {
-				const first = reconnectTarget.requiredEnvVars[0];
-				return {
-					id: 'env-prompt',
-					serverName: reconnectTarget.serverName,
-					envName: first.name,
-					envLabel: first.label,
-					sensitive: first.sensitive ?? true,
-					input: '',
-					masked: '',
-				};
-			}
-			return { id: 'mode', cursor: 0 };
-		});
-		const [envCollected, setEnvCollected] = useState<Record<string, string>>(
-			{},
-		);
-		const [wizardServer, setWizardServer] = useState<KnownServer | null>(null);
-		const [customType, setCustomType] = useState<'local' | 'remote'>('local');
-		const [envQueue, setEnvQueue] = useState<
-			{ name: string; label: string; required: boolean; sensitive?: boolean }[]
-		>(() => {
-			if (reconnectTarget && reconnectTarget.requiredEnvVars.length > 1) {
-				return reconnectTarget.requiredEnvVars.slice(1);
-			}
-			return [];
-		});
-		const isReconnect =
-			!!reconnectTarget && reconnectTarget.requiredEnvVars.length > 0;
+export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(function McpWizard(
+	{ mcpRegistry, onDone, width: _width, reconnectTarget },
+	ref,
+) {
+	const [step, setStep] = useState<WizardStep>(() => {
+		if (reconnectTarget && reconnectTarget.requiredEnvVars.length > 0) {
+			const first = reconnectTarget.requiredEnvVars[0];
+			return {
+				id: 'env-prompt',
+				serverName: reconnectTarget.serverName,
+				envName: first.name,
+				envLabel: first.label,
+				sensitive: first.sensitive ?? true,
+				input: '',
+				masked: '',
+			};
+		}
+		return { id: 'mode', cursor: 0 };
+	});
+	const [envCollected, setEnvCollected] = useState<Record<string, string>>({});
+	const [wizardServer, setWizardServer] = useState<KnownServer | null>(null);
+	const [customType, setCustomType] = useState<'local' | 'remote'>('local');
+	const [envQueue, setEnvQueue] = useState<
+		{ name: string; label: string; required: boolean; sensitive?: boolean }[]
+	>(() => {
+		if (reconnectTarget && reconnectTarget.requiredEnvVars.length > 1) {
+			return reconnectTarget.requiredEnvVars.slice(1);
+		}
+		return [];
+	});
+	const isReconnect = !!reconnectTarget && reconnectTarget.requiredEnvVars.length > 0;
 
-		const persistConfig = useCallback(
-			(name: string, mcpConfig: McpServerConfig) => {
-				const config = loadUserConfig();
-				if (!config.mcpServers) config.mcpServers = {};
-				config.mcpServers[name] = mcpConfig;
-				writeUserConfig(config);
-			},
-			[],
-		);
+	const persistConfig = useCallback((name: string, mcpConfig: McpServerConfig) => {
+		const config = loadUserConfig();
+		if (!config.mcpServers) config.mcpServers = {};
+		config.mcpServers[name] = mcpConfig;
+		writeUserConfig(config);
+	}, []);
 
-		const doConnect = useCallback(
-			(name: string, mcpConfig: McpServerConfig) => {
-				mcpRegistry
-					.addServer(name, mcpConfig)
-					.then((info: McpServerInfo) => {
-						if (info.status === 'error') {
-							setStep({
-								id: 'error',
-								name,
-								error: info.error || 'Unknown error',
-							});
-							return;
-						}
+	const doConnect = useCallback(
+		(name: string, mcpConfig: McpServerConfig) => {
+			mcpRegistry
+				.addServer(name, mcpConfig)
+				.then((info: McpServerInfo) => {
+					if (info.status === 'error') {
 						setStep({
-							id: 'connected',
+							id: 'error',
 							name,
-							tools: info.tools.map((t: string) =>
-								t.replace(`mcp__${name}__`, ''),
-							),
+							error: info.error || 'Unknown error',
 						});
-						persistConfig(name, mcpConfig);
-					})
-					.catch((err: any) => {
-						setStep({ id: 'error', name, error: err.message || String(err) });
-					});
-			},
-			[mcpRegistry, persistConfig],
-		);
-
-		const advanceEnvOrConnect = useCallback(
-			(
-				name: string,
-				server: KnownServer,
-				envSoFar: Record<string, string>,
-				queue: { name: string; label: string; required: boolean }[],
-			) => {
-				if (queue.length === 0) {
-					const command =
-						server.command ??
-						(server.package ? ['npx', '-y', server.package] : undefined);
-					if (!command) return;
-					const mcpConfig: McpServerConfig = {
-						type: 'local',
-						command,
-						env: Object.keys(envSoFar).length > 0 ? envSoFar : undefined,
-						enabled: true,
-					};
-					setStep({ id: 'connecting', name });
-					doConnect(name, mcpConfig);
-					return;
-				}
-				const next = queue[0];
-				if (!next) return;
-				const existing = process.env[next.name];
-				if (existing) {
-					const newEnv = { ...envSoFar, [next.name]: existing };
-					advanceEnvOrConnect(name, server, newEnv, queue.slice(1));
-				} else {
-					setEnvCollected(envSoFar);
-					setEnvQueue(queue.slice(1));
-					setStep({
-						id: 'env-prompt',
-						serverName: name,
-						envName: next.name,
-						envLabel: next.label,
-						sensitive: true,
-						input: '',
-						masked: '',
-					});
-				}
-			},
-			[doConnect],
-		);
-
-		const reconnectAdvance = useCallback(
-			(
-				name: string,
-				envSoFar: Record<string, string>,
-				queue: {
-					name: string;
-					label: string;
-					required: boolean;
-					sensitive?: boolean;
-				}[],
-			) => {
-				while (queue.length > 0 && process.env[queue[0].name]) {
-					const val = process.env[queue[0].name];
-					envSoFar = {
-						...envSoFar,
-						[queue[0].name]: val as string,
-					};
-					queue = queue.slice(1);
-				}
-				if (queue.length === 0) {
-					const existing = mcpRegistry.getConfigs()[name];
-					if (!existing) {
-						onDone(`Server "${name}" not found in registry.`);
 						return;
 					}
-					const mergedEnv = { ...(existing.env || {}), ...envSoFar };
-					const existingEnvVars = existing.requiredEnvVars || [];
-					const reconnectEnvVars = reconnectTarget?.requiredEnvVars || [];
-					const allEnvVars = [...existingEnvVars];
-					for (const rv of reconnectEnvVars) {
-						if (!allEnvVars.some((e) => e.name === rv.name)) {
-							allEnvVars.push(rv);
-						}
-					}
-					const mcpConfig: McpServerConfig = {
-						...existing,
-						env: mergedEnv,
-						enabled: true,
-						requiredEnvVars: allEnvVars.length > 0 ? allEnvVars : undefined,
-					};
-					setStep({ id: 'connecting', name });
-					mcpRegistry.removeServer(name).then(() => {
-						doConnect(name, mcpConfig);
+					setStep({
+						id: 'connected',
+						name,
+						tools: info.tools.map((t: string) => t.replace(`mcp__${name}__`, '')),
 					});
-					return;
-				}
-				const next = queue[0];
+					persistConfig(name, mcpConfig);
+				})
+				.catch((err: any) => {
+					setStep({ id: 'error', name, error: err.message || String(err) });
+				});
+		},
+		[mcpRegistry, persistConfig],
+	);
+
+	const advanceEnvOrConnect = useCallback(
+		(
+			name: string,
+			server: KnownServer,
+			envSoFar: Record<string, string>,
+			queue: { name: string; label: string; required: boolean }[],
+		) => {
+			if (queue.length === 0) {
+				const command =
+					server.command ?? (server.package ? ['npx', '-y', server.package] : undefined);
+				if (!command) return;
+				const mcpConfig: McpServerConfig = {
+					type: 'local',
+					command,
+					env: Object.keys(envSoFar).length > 0 ? envSoFar : undefined,
+					enabled: true,
+				};
+				setStep({ id: 'connecting', name });
+				doConnect(name, mcpConfig);
+				return;
+			}
+			const next = queue[0];
+			if (!next) return;
+			const existing = process.env[next.name];
+			if (existing) {
+				const newEnv = { ...envSoFar, [next.name]: existing };
+				advanceEnvOrConnect(name, server, newEnv, queue.slice(1));
+			} else {
 				setEnvCollected(envSoFar);
 				setEnvQueue(queue.slice(1));
 				setStep({
@@ -231,456 +152,502 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 					serverName: name,
 					envName: next.name,
 					envLabel: next.label,
-					sensitive: next.sensitive ?? true,
+					sensitive: true,
 					input: '',
 					masked: '',
 				});
-			},
-			[doConnect, mcpRegistry, onDone, reconnectTarget?.requiredEnvVars],
-		);
+			}
+		},
+		[doConnect],
+	);
 
-		const handleKey = useCallback(
-			(inputChar: string, key: any) => {
-				const s = step;
-
-				if (s.id === 'mode') {
-					if (key.upArrow) {
-						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
-						return;
-					}
-					if (key.downArrow) {
-						setStep({ ...s, cursor: Math.min(2, s.cursor + 1) });
-						return;
-					}
-					if (key.escape) {
-						onDone('');
-						return;
-					}
-					const idx =
-						inputChar === '1'
-							? 0
-							: inputChar === '2'
-								? 1
-								: inputChar === '3'
-									? 2
-									: -1;
-					const target = idx >= 0 ? idx : key.return ? s.cursor : -1;
-					if (target === 0) {
-						setStep({ id: 'catalog', cursor: 0 });
-						return;
-					}
-					if (target === 1) {
-						setStep({ id: 'custom-type', cursor: 0 });
-						return;
-					}
-					if (target === 2) {
-						const servers = mcpRegistry.listServers();
-						if (servers.length === 0) {
-							onDone('No servers configured.');
-							return;
-						}
-						setStep({ id: 'remove-select', cursor: 0 });
-						return;
-					}
+	const reconnectAdvance = useCallback(
+		(
+			name: string,
+			envSoFar: Record<string, string>,
+			queue: {
+				name: string;
+				label: string;
+				required: boolean;
+				sensitive?: boolean;
+			}[],
+		) => {
+			while (queue.length > 0 && process.env[queue[0].name]) {
+				const val = process.env[queue[0].name];
+				envSoFar = {
+					...envSoFar,
+					[queue[0].name]: val as string,
+				};
+				queue = queue.slice(1);
+			}
+			if (queue.length === 0) {
+				const existing = mcpRegistry.getConfigs()[name];
+				if (!existing) {
+					onDone(`Server "${name}" not found in registry.`);
 					return;
 				}
+				const mergedEnv = { ...(existing.env || {}), ...envSoFar };
+				const existingEnvVars = existing.requiredEnvVars || [];
+				const reconnectEnvVars = reconnectTarget?.requiredEnvVars || [];
+				const allEnvVars = [...existingEnvVars];
+				for (const rv of reconnectEnvVars) {
+					if (!allEnvVars.some((e) => e.name === rv.name)) {
+						allEnvVars.push(rv);
+					}
+				}
+				const mcpConfig: McpServerConfig = {
+					...existing,
+					env: mergedEnv,
+					enabled: true,
+					requiredEnvVars: allEnvVars.length > 0 ? allEnvVars : undefined,
+				};
+				setStep({ id: 'connecting', name });
+				mcpRegistry.removeServer(name).then(() => {
+					doConnect(name, mcpConfig);
+				});
+				return;
+			}
+			const next = queue[0];
+			setEnvCollected(envSoFar);
+			setEnvQueue(queue.slice(1));
+			setStep({
+				id: 'env-prompt',
+				serverName: name,
+				envName: next.name,
+				envLabel: next.label,
+				sensitive: next.sensitive ?? true,
+				input: '',
+				masked: '',
+			});
+		},
+		[doConnect, mcpRegistry, onDone, reconnectTarget?.requiredEnvVars],
+	);
 
-				if (s.id === 'catalog') {
-					if (key.upArrow) {
-						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+	const handleKey = useCallback(
+		(inputChar: string, key: any) => {
+			const s = step;
+
+			if (s.id === 'mode') {
+				if (key.upArrow) {
+					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+					return;
+				}
+				if (key.downArrow) {
+					setStep({ ...s, cursor: Math.min(2, s.cursor + 1) });
+					return;
+				}
+				if (key.escape) {
+					onDone('');
+					return;
+				}
+				const idx =
+					inputChar === '1' ? 0 : inputChar === '2' ? 1 : inputChar === '3' ? 2 : -1;
+				const target = idx >= 0 ? idx : key.return ? s.cursor : -1;
+				if (target === 0) {
+					setStep({ id: 'catalog', cursor: 0 });
+					return;
+				}
+				if (target === 1) {
+					setStep({ id: 'custom-type', cursor: 0 });
+					return;
+				}
+				if (target === 2) {
+					const servers = mcpRegistry.listServers();
+					if (servers.length === 0) {
+						onDone('No servers configured.');
 						return;
 					}
-					if (key.downArrow) {
+					setStep({ id: 'remove-select', cursor: 0 });
+					return;
+				}
+				return;
+			}
+
+			if (s.id === 'catalog') {
+				if (key.upArrow) {
+					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+					return;
+				}
+				if (key.downArrow) {
+					setStep({
+						...s,
+						cursor: Math.min(KNOWN_SERVERS.length - 1, s.cursor + 1),
+					});
+					return;
+				}
+				if (key.escape) {
+					setStep({ id: 'mode', cursor: 0 });
+					return;
+				}
+				if (key.return) {
+					const server = KNOWN_SERVERS[s.cursor];
+					if (!server) return;
+					if (mcpRegistry.hasServer(server.id)) {
+						onDone(`"${server.name}" is already configured. Remove it first.`);
+						return;
+					}
+					setWizardServer(server);
+					if (server.id === 'filesystem') {
+						setStep({ id: 'filesystem-dirs', input: '' });
+						return;
+					}
+					advanceEnvOrConnect(server.id, server, {}, server.envVars);
+				}
+				return;
+			}
+
+			if (s.id === 'custom-type') {
+				if (key.upArrow) {
+					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+					return;
+				}
+				if (key.downArrow) {
+					setStep({ ...s, cursor: Math.min(1, s.cursor + 1) });
+					return;
+				}
+				if (key.escape) {
+					setStep({ id: 'mode', cursor: 1 });
+					return;
+				}
+				const idx = inputChar === '1' ? 0 : inputChar === '2' ? 1 : -1;
+				const target = idx >= 0 ? idx : key.return ? s.cursor : -1;
+				if (target === 0) {
+					setCustomType('local');
+					setStep({ id: 'custom-name', input: '', error: '' });
+					return;
+				}
+				if (target === 1) {
+					setCustomType('remote');
+					setStep({ id: 'custom-name', input: '', error: '' });
+					return;
+				}
+				return;
+			}
+
+			if (s.id === 'custom-name') {
+				if (key.escape) {
+					setStep({ id: 'custom-type', cursor: 0 });
+					return;
+				}
+				if (key.return) {
+					const n = s.input.trim();
+					if (!n) {
+						setStep({ ...s, error: 'Name is required' });
+						return;
+					}
+					if (!/^[a-z0-9_-]+$/.test(n)) {
+						setStep({ ...s, error: 'Lowercase, numbers, hyphens only' });
+						return;
+					}
+					if (mcpRegistry.hasServer(n)) {
+						setStep({ ...s, error: `"${n}" already exists` });
+						return;
+					}
+					if (customType === 'local')
 						setStep({
-							...s,
-							cursor: Math.min(KNOWN_SERVERS.length - 1, s.cursor + 1),
+							id: 'custom-local-command',
+							name: n,
+							input: 'npx -y ',
+							error: '',
 						});
-						return;
-					}
-					if (key.escape) {
-						setStep({ id: 'mode', cursor: 0 });
-						return;
-					}
-					if (key.return) {
-						const server = KNOWN_SERVERS[s.cursor];
-						if (!server) return;
-						if (mcpRegistry.hasServer(server.id)) {
-							onDone(
-								`"${server.name}" is already configured. Remove it first.`,
-							);
-							return;
-						}
-						setWizardServer(server);
-						if (server.id === 'filesystem') {
-							setStep({ id: 'filesystem-dirs', input: '' });
-							return;
-						}
-						advanceEnvOrConnect(server.id, server, {}, server.envVars);
-					}
+					else
+						setStep({
+							id: 'custom-remote-url',
+							name: n,
+							input: '',
+							error: '',
+						});
 					return;
 				}
-
-				if (s.id === 'custom-type') {
-					if (key.upArrow) {
-						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
-						return;
-					}
-					if (key.downArrow) {
-						setStep({ ...s, cursor: Math.min(1, s.cursor + 1) });
-						return;
-					}
-					if (key.escape) {
-						setStep({ id: 'mode', cursor: 1 });
-						return;
-					}
-					const idx = inputChar === '1' ? 0 : inputChar === '2' ? 1 : -1;
-					const target = idx >= 0 ? idx : key.return ? s.cursor : -1;
-					if (target === 0) {
-						setCustomType('local');
-						setStep({ id: 'custom-name', input: '', error: '' });
-						return;
-					}
-					if (target === 1) {
-						setCustomType('remote');
-						setStep({ id: 'custom-name', input: '', error: '' });
-						return;
-					}
+				if (key.backspace) {
+					setStep({ ...s, input: s.input.slice(0, -1), error: '' });
 					return;
 				}
+				if (!key.ctrl && !key.meta && inputChar) {
+					setStep({ ...s, input: s.input + inputChar, error: '' });
+				}
+				return;
+			}
 
-				if (s.id === 'custom-name') {
-					if (key.escape) {
-						setStep({ id: 'custom-type', cursor: 0 });
-						return;
-					}
-					if (key.return) {
-						const n = s.input.trim();
-						if (!n) {
-							setStep({ ...s, error: 'Name is required' });
-							return;
-						}
-						if (!/^[a-z0-9_-]+$/.test(n)) {
-							setStep({ ...s, error: 'Lowercase, numbers, hyphens only' });
-							return;
-						}
-						if (mcpRegistry.hasServer(n)) {
-							setStep({ ...s, error: `"${n}" already exists` });
-							return;
-						}
-						if (customType === 'local')
-							setStep({
-								id: 'custom-local-command',
-								name: n,
-								input: 'npx -y ',
-								error: '',
-							});
-						else
-							setStep({
-								id: 'custom-remote-url',
-								name: n,
-								input: '',
-								error: '',
-							});
-						return;
-					}
-					if (key.backspace) {
-						setStep({ ...s, input: s.input.slice(0, -1), error: '' });
-						return;
-					}
-					if (!key.ctrl && !key.meta && inputChar) {
-						setStep({ ...s, input: s.input + inputChar, error: '' });
-					}
+			if (s.id === 'custom-local-command') {
+				if (key.escape) {
+					setStep({ id: 'custom-name', input: s.name, error: '' });
 					return;
 				}
-
-				if (s.id === 'custom-local-command') {
-					if (key.escape) {
-						setStep({ id: 'custom-name', input: s.name, error: '' });
+				if (key.return) {
+					const cmd = s.input.trim();
+					if (!cmd) {
+						setStep({ ...s, error: 'Command is required' });
 						return;
 					}
-					if (key.return) {
-						const cmd = s.input.trim();
-						if (!cmd) {
-							setStep({ ...s, error: 'Command is required' });
-							return;
-						}
-						const command = cmd.split(/\s+/);
-						const mcpConfig: McpServerConfig = {
-							type: 'local',
-							command,
-							enabled: true,
-						};
-						setStep({ id: 'connecting', name: s.name });
-						doConnect(s.name, mcpConfig);
-						return;
-					}
-					if (key.backspace) {
-						setStep({ ...s, input: s.input.slice(0, -1), error: '' });
-						return;
-					}
-					if (!key.ctrl && !key.meta && inputChar) {
-						setStep({ ...s, input: s.input + inputChar, error: '' });
-					}
+					const command = cmd.split(/\s+/);
+					const mcpConfig: McpServerConfig = {
+						type: 'local',
+						command,
+						enabled: true,
+					};
+					setStep({ id: 'connecting', name: s.name });
+					doConnect(s.name, mcpConfig);
 					return;
 				}
-
-				if (s.id === 'custom-remote-url') {
-					if (key.escape) {
-						setStep({ id: 'custom-name', input: s.name, error: '' });
-						return;
-					}
-					if (key.return) {
-						const url = s.input.trim();
-						if (!url) {
-							setStep({ ...s, error: 'URL is required' });
-							return;
-						}
-						if (!url.startsWith('http://') && !url.startsWith('https://')) {
-							setStep({ ...s, error: 'Must start with http(s)://' });
-							return;
-						}
-						const mcpConfig: McpServerConfig = {
-							type: 'remote',
-							url,
-							enabled: true,
-						};
-						setStep({ id: 'connecting', name: s.name });
-						doConnect(s.name, mcpConfig);
-						return;
-					}
-					if (key.backspace) {
-						setStep({ ...s, input: s.input.slice(0, -1), error: '' });
-						return;
-					}
-					if (!key.ctrl && !key.meta && inputChar) {
-						setStep({ ...s, input: s.input + inputChar, error: '' });
-					}
+				if (key.backspace) {
+					setStep({ ...s, input: s.input.slice(0, -1), error: '' });
 					return;
 				}
+				if (!key.ctrl && !key.meta && inputChar) {
+					setStep({ ...s, input: s.input + inputChar, error: '' });
+				}
+				return;
+			}
 
-				if (s.id === 'env-prompt') {
-					if (key.escape) {
-						onDone('Cancelled');
+			if (s.id === 'custom-remote-url') {
+				if (key.escape) {
+					setStep({ id: 'custom-name', input: s.name, error: '' });
+					return;
+				}
+				if (key.return) {
+					const url = s.input.trim();
+					if (!url) {
+						setStep({ ...s, error: 'URL is required' });
 						return;
 					}
-					if (key.return) {
-						const val = s.input.trim();
-						if (isReconnect) {
-							const envDef = reconnectTarget?.requiredEnvVars.find(
-								(e) => e.name === s.envName,
-							);
-							if (!val && envDef?.required) return;
-							const newEnv = { ...envCollected };
-							if (val) {
-								newEnv[s.envName] = val;
-							}
-							reconnectAdvance(s.serverName, newEnv, envQueue);
-							return;
-						}
-						const sv = wizardServer;
-						if (!sv) {
-							onDone('Error');
-							return;
-						}
-						const envVar = sv.envVars.find((e) => e.name === s.envName);
-						if (!val && envVar?.required) return;
+					if (!url.startsWith('http://') && !url.startsWith('https://')) {
+						setStep({ ...s, error: 'Must start with http(s)://' });
+						return;
+					}
+					const mcpConfig: McpServerConfig = {
+						type: 'remote',
+						url,
+						enabled: true,
+					};
+					setStep({ id: 'connecting', name: s.name });
+					doConnect(s.name, mcpConfig);
+					return;
+				}
+				if (key.backspace) {
+					setStep({ ...s, input: s.input.slice(0, -1), error: '' });
+					return;
+				}
+				if (!key.ctrl && !key.meta && inputChar) {
+					setStep({ ...s, input: s.input + inputChar, error: '' });
+				}
+				return;
+			}
+
+			if (s.id === 'env-prompt') {
+				if (key.escape) {
+					onDone('Cancelled');
+					return;
+				}
+				if (key.return) {
+					const val = s.input.trim();
+					if (isReconnect) {
+						const envDef = reconnectTarget?.requiredEnvVars.find(
+							(e) => e.name === s.envName,
+						);
+						if (!val && envDef?.required) return;
 						const newEnv = { ...envCollected };
 						if (val) {
 							newEnv[s.envName] = val;
 						}
-						advanceEnvOrConnect(s.serverName, sv, newEnv, envQueue);
+						reconnectAdvance(s.serverName, newEnv, envQueue);
 						return;
 					}
-					if (key.backspace) {
-						const newInput = s.input.slice(0, -1);
-						setStep({
-							...s,
-							input: newInput,
-							masked: s.sensitive ? maskInput(newInput) : newInput,
-						});
+					const sv = wizardServer;
+					if (!sv) {
+						onDone('Error');
 						return;
 					}
-					if (!key.ctrl && !key.meta && inputChar) {
-						const newInput = s.input + inputChar;
-						setStep({
-							...s,
-							input: newInput,
-							masked: s.sensitive ? maskInput(newInput) : newInput,
-						});
+					const envVar = sv.envVars.find((e) => e.name === s.envName);
+					if (!val && envVar?.required) return;
+					const newEnv = { ...envCollected };
+					if (val) {
+						newEnv[s.envName] = val;
 					}
+					advanceEnvOrConnect(s.serverName, sv, newEnv, envQueue);
 					return;
 				}
-
-				if (s.id === 'filesystem-dirs') {
-					if (key.escape) {
-						onDone('Cancelled');
-						return;
-					}
-					if (key.return) {
-						const sv = KNOWN_SERVERS.find((x) => x.id === 'filesystem');
-						if (!sv) return;
-						const dirs = (s.input.trim() || process.cwd())
-							.split(',')
-							.map((d) => d.trim())
-							.filter(Boolean);
-						const command =
-							sv.command ??
-							(sv.package ? ['npx', '-y', sv.package, ...dirs] : undefined);
-						if (!command) return;
-						const mcpConfig: McpServerConfig = {
-							type: 'local',
-							command,
-							enabled: true,
-						};
-						setStep({ id: 'connecting', name: 'filesystem' });
-						doConnect('filesystem', mcpConfig);
-						return;
-					}
-					if (key.backspace) {
-						setStep({ ...s, input: s.input.slice(0, -1) });
-						return;
-					}
-					if (!key.ctrl && !key.meta && inputChar) {
-						setStep({ ...s, input: s.input + inputChar });
-					}
-					return;
-				}
-
-				if (s.id === 'connecting') {
-					if (key.escape) {
-						onDone('Connecting...');
-						return;
-					}
-					return;
-				}
-
-				if (s.id === 'connected') {
-					if (key.return || key.escape) {
-						onDone(
-							`Connected to "${s.name}" (${s.tools.length} tools): ${s.tools.slice(0, 8).join(', ')}${s.tools.length > 8 ? ` +${s.tools.length - 8} more` : ''}`,
-						);
-					}
-					return;
-				}
-
-				if (s.id === 'error') {
-					if (key.return || key.escape) {
-						onDone(`Failed: ${s.error}`);
-					}
-					return;
-				}
-
-				if (s.id === 'removed') {
-					if (key.return || key.escape) {
-						onDone(`Removed "${s.name}".`);
-					}
-					return;
-				}
-
-				if (s.id === 'remove-select') {
-					const servers = mcpRegistry.listServers();
-					if (key.upArrow) {
-						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
-						return;
-					}
-					if (key.downArrow) {
-						setStep({
-							...s,
-							cursor: Math.min(servers.length - 1, s.cursor + 1),
-						});
-						return;
-					}
-					if (key.escape) {
-						setStep({ id: 'mode', cursor: 2 });
-						return;
-					}
-					if (key.return && servers[s.cursor]) {
-						const name = servers[s.cursor].name;
-						mcpRegistry.removeServer(name);
-						const cfg = loadUserConfig();
-						if (cfg.mcpServers?.[name]) {
-							delete cfg.mcpServers[name];
-							writeUserConfig(cfg);
-						}
-						setStep({ id: 'removed', name });
-					}
-					return;
-				}
-			},
-			[
-				step,
-				envCollected,
-				envQueue,
-				wizardServer,
-				customType,
-				mcpRegistry,
-				onDone,
-				doConnect,
-				advanceEnvOrConnect,
-				isReconnect,
-				reconnectAdvance,
-				reconnectTarget,
-			],
-		);
-
-		const handlePaste = useCallback(
-			(text: string) => {
-				const s = step;
-				if (
-					s.id === 'custom-name' ||
-					s.id === 'custom-local-command' ||
-					s.id === 'custom-remote-url' ||
-					s.id === 'filesystem-dirs'
-				) {
+				if (key.backspace) {
+					const newInput = s.input.slice(0, -1);
 					setStep({
 						...s,
-						input: s.input + text,
-						...(s.id !== 'filesystem-dirs' ? { error: '' } : {}),
+						input: newInput,
+						masked: s.sensitive ? maskInput(newInput) : newInput,
 					});
+					return;
 				}
-				if (s.id === 'env-prompt') {
-					const newInput = s.input + text;
+				if (!key.ctrl && !key.meta && inputChar) {
+					const newInput = s.input + inputChar;
 					setStep({
 						...s,
 						input: newInput,
 						masked: s.sensitive ? maskInput(newInput) : newInput,
 					});
 				}
-			},
-			[step],
-		);
+				return;
+			}
 
-		useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [
-			handleKey,
-			handlePaste,
-		]);
+			if (s.id === 'filesystem-dirs') {
+				if (key.escape) {
+					onDone('Cancelled');
+					return;
+				}
+				if (key.return) {
+					const sv = KNOWN_SERVERS.find((x) => x.id === 'filesystem');
+					if (!sv) return;
+					const dirs = (s.input.trim() || process.cwd())
+						.split(',')
+						.map((d) => d.trim())
+						.filter(Boolean);
+					const command =
+						sv.command ?? (sv.package ? ['npx', '-y', sv.package, ...dirs] : undefined);
+					if (!command) return;
+					const mcpConfig: McpServerConfig = {
+						type: 'local',
+						command,
+						enabled: true,
+					};
+					setStep({ id: 'connecting', name: 'filesystem' });
+					doConnect('filesystem', mcpConfig);
+					return;
+				}
+				if (key.backspace) {
+					setStep({ ...s, input: s.input.slice(0, -1) });
+					return;
+				}
+				if (!key.ctrl && !key.meta && inputChar) {
+					setStep({ ...s, input: s.input + inputChar });
+				}
+				return;
+			}
 
-		return h(
+			if (s.id === 'connecting') {
+				if (key.escape) {
+					onDone('Connecting...');
+					return;
+				}
+				return;
+			}
+
+			if (s.id === 'connected') {
+				if (key.return || key.escape) {
+					onDone(
+						`Connected to "${s.name}" (${s.tools.length} tools): ${s.tools.slice(0, 8).join(', ')}${s.tools.length > 8 ? ` +${s.tools.length - 8} more` : ''}`,
+					);
+				}
+				return;
+			}
+
+			if (s.id === 'error') {
+				if (key.return || key.escape) {
+					onDone(`Failed: ${s.error}`);
+				}
+				return;
+			}
+
+			if (s.id === 'removed') {
+				if (key.return || key.escape) {
+					onDone(`Removed "${s.name}".`);
+				}
+				return;
+			}
+
+			if (s.id === 'remove-select') {
+				const servers = mcpRegistry.listServers();
+				if (key.upArrow) {
+					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+					return;
+				}
+				if (key.downArrow) {
+					setStep({
+						...s,
+						cursor: Math.min(servers.length - 1, s.cursor + 1),
+					});
+					return;
+				}
+				if (key.escape) {
+					setStep({ id: 'mode', cursor: 2 });
+					return;
+				}
+				if (key.return && servers[s.cursor]) {
+					const name = servers[s.cursor].name;
+					mcpRegistry.removeServer(name);
+					const cfg = loadUserConfig();
+					if (cfg.mcpServers?.[name]) {
+						delete cfg.mcpServers[name];
+						writeUserConfig(cfg);
+					}
+					setStep({ id: 'removed', name });
+				}
+				return;
+			}
+		},
+		[
+			step,
+			envCollected,
+			envQueue,
+			wizardServer,
+			customType,
+			mcpRegistry,
+			onDone,
+			doConnect,
+			advanceEnvOrConnect,
+			isReconnect,
+			reconnectAdvance,
+			reconnectTarget,
+		],
+	);
+
+	const handlePaste = useCallback(
+		(text: string) => {
+			const s = step;
+			if (
+				s.id === 'custom-name' ||
+				s.id === 'custom-local-command' ||
+				s.id === 'custom-remote-url' ||
+				s.id === 'filesystem-dirs'
+			) {
+				setStep({
+					...s,
+					input: s.input + text,
+					...(s.id !== 'filesystem-dirs' ? { error: '' } : {}),
+				});
+			}
+			if (s.id === 'env-prompt') {
+				const newInput = s.input + text;
+				setStep({
+					...s,
+					input: newInput,
+					masked: s.sensitive ? maskInput(newInput) : newInput,
+				});
+			}
+		},
+		[step],
+	);
+
+	useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [handleKey, handlePaste]);
+
+	return h(
+		'box',
+		{
+			flexDirection: 'column',
+			flexGrow: 1,
+			backgroundColor: '#0a0a1a',
+			paddingX: 2,
+			paddingY: 1,
+		},
+		renderStep(step, mcpRegistry),
+		h(
 			'box',
-			{
-				flexDirection: 'column',
-				flexGrow: 1,
-				backgroundColor: '#0a0a1a',
-				paddingX: 2,
-				paddingY: 1,
-			},
-			renderStep(step, mcpRegistry),
-			h(
-				'box',
-				{ marginTop: 1 },
-				h('text', { dimColor: true, content: 'Esc = back · Enter = confirm' }),
-			),
-		);
-	},
-);
+			{ marginTop: 1 },
+			h('text', { dimColor: true, content: 'Esc = back · Enter = confirm' }),
+		),
+	);
+});
 
 function renderStep(s: WizardStep, mcpRegistry: McpRegistry): React.ReactNode {
 	if (s.id === 'mode') {
-		const options = [
-			'Add from catalog',
-			'Add custom server',
-			'Remove a server',
-		];
+		const options = ['Add from catalog', 'Add custom server', 'Remove a server'];
 		return h(
 			'box',
 			{ flexDirection: 'column' },
@@ -871,9 +838,7 @@ function renderStep(s: WizardStep, mcpRegistry: McpRegistry): React.ReactNode {
 						content: `Found ${s.envName} in env (will auto-use if blank)`,
 					})
 				: null,
-			!s.sensitive
-				? h('text', { dimColor: true, content: `e.g. ${process.cwd()}` })
-				: null,
+			!s.sensitive ? h('text', { dimColor: true, content: `e.g. ${process.cwd()}` }) : null,
 		);
 	}
 

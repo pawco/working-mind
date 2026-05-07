@@ -1,20 +1,9 @@
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	rmSync,
-	writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { modelCmd } from './builtins/index.js';
-import {
-	getConfigPath,
-	loadUserConfig,
-	type UserConfig,
-	writeUserConfig,
-} from './config.js';
+import { getConfigPath, loadUserConfig, type UserConfig, writeUserConfig } from './config.js';
 import type { CommandResult } from './sdk/command.js';
 import { findProvider, resolveAlias } from './sdk/provider-registry.js';
 import { clearApiKeyCache, resolveApiKey } from './sdk/provider-resolve.js';
@@ -42,8 +31,7 @@ function restoreRealConfig(): void {
 }
 
 function makeModelCtx(modelArg: string, overrides: any = {}) {
-	let userConfig: UserConfig | undefined =
-		overrides.userConfig || loadUserConfig();
+	let userConfig: UserConfig | undefined = overrides.userConfig || loadUserConfig();
 	return {
 		args: modelArg,
 		agent: {
@@ -89,11 +77,9 @@ describe('config persistence', () => {
 	});
 	afterEach(() => {
 		restoreRealConfig();
-		if (origAnthropicKey !== undefined)
-			process.env.ANTHROPIC_API_KEY = origAnthropicKey;
+		if (origAnthropicKey !== undefined) process.env.ANTHROPIC_API_KEY = origAnthropicKey;
 		else delete process.env.ANTHROPIC_API_KEY;
-		if (origOpenrouterKey !== undefined)
-			process.env.OPENROUTER_API_KEY = origOpenrouterKey;
+		if (origOpenrouterKey !== undefined) process.env.OPENROUTER_API_KEY = origOpenrouterKey;
 		else delete process.env.OPENROUTER_API_KEY;
 	});
 
@@ -113,9 +99,7 @@ describe('config persistence', () => {
 			};
 			writeUserConfig(cfg);
 			const loaded = loadUserConfig();
-			expect(loaded.defaultModel).toBe(
-				'openrouter/anthropic/claude-sonnet-4-6',
-			);
+			expect(loaded.defaultModel).toBe('openrouter/anthropic/claude-sonnet-4-6');
 		});
 
 		it('simulates restart: write model A, reload, write model B, reload', () => {
@@ -148,9 +132,7 @@ describe('config persistence', () => {
 			});
 
 			const loaded = loadUserConfig();
-			expect(loaded.providers?.openrouter?.apiKey).toBe(
-				'env:OPENROUTER_API_KEY',
-			);
+			expect(loaded.providers?.openrouter?.apiKey).toBe('env:OPENROUTER_API_KEY');
 			expect(loaded.providers?.ollama).toBeDefined();
 			expect(loaded.systemPrompts?.default).toBe('original');
 			expect(loaded.agents?.maxTurns).toBe(10);

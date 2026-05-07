@@ -8,21 +8,12 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import type { UserConfig } from './config.js';
-import {
-	mergePackTools,
-	resolvePackPrompt,
-	resolvePersonaFromPacks,
-} from './loader.js';
+import { mergePackTools, resolvePackPrompt, resolvePersonaFromPacks } from './loader.js';
 import { replaceAvailableTools } from './pack-loader.js';
 import { getSessionsDir } from './paths.js';
 import { type SessionData, sessionDataSchema } from './schemas.js';
 import type { ResolvedProvider } from './sdk/provider-resolve.js';
-import {
-	applyToolFilter,
-	type ToolDef,
-	type ToolFilter,
-	type ToolPack,
-} from './sdk/tool.js';
+import { applyToolFilter, type ToolDef, type ToolFilter, type ToolPack } from './sdk/tool.js';
 import { SkillRegistry } from './skill-registry.js';
 import { assembleSystemPrompt } from './system-prompt.js';
 
@@ -181,20 +172,14 @@ export class AgentRegistry {
 		if (!skill) return null;
 		const agent = this.getActive();
 		if (agent) {
-			if (
-				agent.packName &&
-				skill.packName &&
-				skill.packName !== agent.packName
-			) {
+			if (agent.packName && skill.packName && skill.packName !== agent.packName) {
 				this.skillRegistry.deactivate(name);
 				return null;
 			}
 			agent.activeSkills.add(name);
 			this.rebuildSystemPrompt(agent);
 			if (skill.allowedTools) {
-				const filtered = agent.tools.filter((t) =>
-					skill.allowedTools?.includes(t.name),
-				);
+				const filtered = agent.tools.filter((t) => skill.allowedTools?.includes(t.name));
 				if (filtered.length > 0) {
 					agent.tools = filtered;
 				}
@@ -205,9 +190,7 @@ export class AgentRegistry {
 
 	deactivateSkill(name: string): void {
 		if (name === '*') {
-			const _activeNames = [
-				...this.skillRegistry.getActive().map((s) => s.name),
-			];
+			const _activeNames = [...this.skillRegistry.getActive().map((s) => s.name)];
 			this.skillRegistry.deactivateAll();
 			const agent = this.getActive();
 			if (agent) {
@@ -328,10 +311,7 @@ export class AgentRegistry {
 		if (agent) {
 			agent.tools = this.getAllTools(undefined, agent.packName);
 			const allToolNames = agent.tools.map((t) => t.name);
-			agent.systemPrompt = replaceAvailableTools(
-				agent.systemPrompt,
-				allToolNames,
-			);
+			agent.systemPrompt = replaceAvailableTools(agent.systemPrompt, allToolNames);
 		}
 	}
 
@@ -484,9 +464,7 @@ export class AgentRegistry {
 
 		if (existsSync(MANIFEST_PATH)) {
 			try {
-				const manifest: ManifestData = JSON.parse(
-					readFileSync(MANIFEST_PATH, 'utf-8'),
-				);
+				const manifest: ManifestData = JSON.parse(readFileSync(MANIFEST_PATH, 'utf-8'));
 				for (const summary of Object.values(manifest.sessions)) {
 					summaries.push(summary);
 				}
@@ -525,9 +503,7 @@ export class AgentRegistry {
 		}
 
 		return summaries.sort(
-			(a, b) =>
-				new Date(b.updatedAt || 0).getTime() -
-				new Date(a.updatedAt || 0).getTime(),
+			(a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime(),
 		);
 	}
 

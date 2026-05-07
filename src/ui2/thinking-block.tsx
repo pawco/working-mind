@@ -1,11 +1,7 @@
 import { createElement as h } from 'react';
 import type { HistoryEntry } from '../sdk/command.js';
 import { sanitizeUntrusted } from '../ui/ansi-sanitize.js';
-import {
-	formatElapsed,
-	THINKING_COLLAPSE_THRESHOLD,
-	THINKING_PREVIEW_LINES,
-} from '../ui/utils.js';
+import { formatElapsed, THINKING_COLLAPSE_THRESHOLD, THINKING_PREVIEW_LINES } from '../ui/utils.js';
 import { ACCENT_THINKING, BG_THINKING, MessageCard } from './message-card.js';
 
 export interface ThinkingBlockProps {
@@ -14,11 +10,7 @@ export interface ThinkingBlockProps {
 	collapsed?: boolean;
 }
 
-export function ThinkingBlock({
-	entry,
-	expanded,
-	collapsed,
-}: ThinkingBlockProps) {
+export function ThinkingBlock({ entry, expanded, collapsed }: ThinkingBlockProps) {
 	if (collapsed) {
 		return h(MessageCard, {
 			accentColor: ACCENT_THINKING,
@@ -34,9 +26,7 @@ export function ThinkingBlock({
 	}
 
 	const duration =
-		entry.startTime && entry.endTime
-			? formatElapsed(entry.endTime - entry.startTime)
-			: null;
+		entry.startTime && entry.endTime ? formatElapsed(entry.endTime - entry.startTime) : null;
 
 	if (entry.streaming && !expanded) {
 		const lines = sanitizeUntrusted(entry.content).split('\n');
@@ -79,8 +69,7 @@ export function ThinkingBlock({
 	const lines = sanitizeUntrusted(entry.content).split('\n');
 	const totalLines = lines.length;
 	const isLong = !entry.streaming && totalLines > THINKING_COLLAPSE_THRESHOLD;
-	const shown =
-		isLong && !expanded ? lines.slice(0, THINKING_PREVIEW_LINES) : lines;
+	const shown = isLong && !expanded ? lines.slice(0, THINKING_PREVIEW_LINES) : lines;
 	const remaining = totalLines - THINKING_PREVIEW_LINES;
 
 	return h(
@@ -94,8 +83,7 @@ export function ThinkingBlock({
 				h('text', { content: '*', fg: ACCENT_THINKING }),
 				h('text', { content: ' thinking', fg: '#7982a9' }),
 				duration && h('text', { content: ` ${duration}`, fg: '#7982a9' }),
-				isLong &&
-					h('text', { content: ` (${totalLines} lines)`, fg: '#555e70' }),
+				isLong && h('text', { content: ` (${totalLines} lines)`, fg: '#555e70' }),
 			),
 		},
 		h(

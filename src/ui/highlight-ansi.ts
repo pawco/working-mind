@@ -120,8 +120,7 @@ export function highlightToAnsi(code: string, lang?: string): string {
 		}
 		if (i > textStart) {
 			const raw = html.slice(textStart, i);
-			const activeClass =
-				classStack.length > 0 ? classStack[classStack.length - 1] : null;
+			const activeClass = classStack.length > 0 ? classStack[classStack.length - 1] : null;
 			if (activeClass) {
 				const colorFn = HLJS_CLASS_COLORS[activeClass];
 				if (colorFn) {

@@ -73,10 +73,7 @@ export function compactMessages(messages: any[]): any[] {
 	return compacted;
 }
 
-function preserveToolCallPairs(
-	messages: any[],
-	initialCutIndex: number,
-): number {
+function preserveToolCallPairs(messages: any[], initialCutIndex: number): number {
 	let cutIndex = initialCutIndex;
 	let changed = true;
 
@@ -93,10 +90,7 @@ function preserveToolCallPairs(
 		}
 
 		for (let i = cutIndex; i < messages.length; i++) {
-			if (
-				messages[i].tool_call_id &&
-				toolCallIdsBeforeCut.has(messages[i].tool_call_id)
-			) {
+			if (messages[i].tool_call_id && toolCallIdsBeforeCut.has(messages[i].tool_call_id)) {
 				for (let j = i - 1; j >= 0; j--) {
 					if (Array.isArray(messages[j].tool_calls)) {
 						for (const tc of messages[j].tool_calls) {

@@ -59,10 +59,7 @@ describe('calculateTurnCost', () => {
 
 describe('calculateResponseCost', () => {
 	it('sums multiple turns', () => {
-		const turns = [
-			calculateTurnCost(sonnet, 1000, 500),
-			calculateTurnCost(haiku, 2000, 1000),
-		];
+		const turns = [calculateTurnCost(sonnet, 1000, 500), calculateTurnCost(haiku, 2000, 1000)];
 		const result = calculateResponseCost(turns);
 		expect(result.totalPromptTokens).toBe(3000);
 		expect(result.totalCompletionTokens).toBe(1500);

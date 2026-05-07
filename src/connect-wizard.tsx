@@ -110,9 +110,7 @@ function providerHint(
 	const suffix = hasKey ? ' \u2713 available' : '';
 	let hint: string;
 	if (isLocalFast) {
-		hint = localFastState.running
-			? `Running (port ${localFastState.port})`
-			: 'Not running';
+		hint = localFastState.running ? `Running (port ${localFastState.port})` : 'Not running';
 	} else if (isOllama) {
 		hint = ollamaRunning ? `${p.models.length} models curated` : 'Not running';
 	} else if (p.free === true) {
@@ -125,400 +123,382 @@ function providerHint(
 	return { suffix, hint };
 }
 
-export const ConnectWizard = forwardRef<
-	ConnectWizardHandle,
-	ConnectWizardProps
->(function ConnectWizard({ onDone, getUserConfig }, ref) {
-	const [step, setStep] = useState<ConnectStep>({
-		id: 'provider-select',
-		cursor: 0,
-		showMore: false,
-	});
-	const [ollamaState, setOllamaState] = useState<{
-		running: boolean;
-		models: OllamaModelInfo[];
-		probed: boolean;
-	}>({ running: false, models: [], probed: false });
-	const [localFastState, setLocalFastState] = useState<LocalFastProbeResult>({
-		running: false,
-		baseUrl: '',
-		model: '',
-		port: 19421,
-		probed: false,
-	} as LocalFastProbeResult & { probed: boolean });
-	const [userConfig] = useState<UserConfig>(() => loadUserConfig());
+export const ConnectWizard = forwardRef<ConnectWizardHandle, ConnectWizardProps>(
+	function ConnectWizard({ onDone, getUserConfig }, ref) {
+		const [step, setStep] = useState<ConnectStep>({
+			id: 'provider-select',
+			cursor: 0,
+			showMore: false,
+		});
+		const [ollamaState, setOllamaState] = useState<{
+			running: boolean;
+			models: OllamaModelInfo[];
+			probed: boolean;
+		}>({ running: false, models: [], probed: false });
+		const [localFastState, setLocalFastState] = useState<LocalFastProbeResult>({
+			running: false,
+			baseUrl: '',
+			model: '',
+			port: 19421,
+			probed: false,
+		} as LocalFastProbeResult & { probed: boolean });
+		const [userConfig] = useState<UserConfig>(() => loadUserConfig());
 
-	useEffect(() => {
-		Promise.all([probeOllama(), probeLocalFast()]).then(
-			([ollama, localFast]) => {
+		useEffect(() => {
+			Promise.all([probeOllama(), probeLocalFast()]).then(([ollama, localFast]) => {
 				setOllamaState({ ...ollama, probed: true });
 				setLocalFastState({ ...localFast, probed: true });
+			});
+		}, []);
+
+		const finishConnect = useCallback(
+			(provider: ProviderEntry, modelId: string, apiKey: string) => {
+				const cfg = getUserConfig
+					? JSON.parse(JSON.stringify(getUserConfig()))
+					: loadUserConfig();
+				if (!cfg.providers) cfg.providers = {};
+				if (provider.needsApiKey && apiKey) {
+					cfg.providers[provider.id] = {
+						apiKey: `env:${provider.envVar}`,
+						baseUrl: provider.baseUrl,
+					};
+				} else if (provider.id === 'local-fast') {
+					cfg.providers[provider.id] = {
+						baseUrl: localFastState.running ? localFastState.baseUrl : provider.baseUrl,
+					};
+				} else if (provider.id === 'ollama') {
+					cfg.providers[provider.id] = {
+						baseUrl: ollamaState.running
+							? 'http://localhost:11434/v1'
+							: provider.baseUrl,
+					};
+				}
+				const fullModelId = `${provider.id}/${modelId}`;
+				cfg.defaultModel = fullModelId;
+				writeUserConfig(cfg);
+
+				if (apiKey) cacheApiKey(provider.id, apiKey);
+
+				setStep({ id: 'connected', provider, modelId });
 			},
+			[ollamaState.running, localFastState, getUserConfig],
 		);
-	}, []);
 
-	const finishConnect = useCallback(
-		(provider: ProviderEntry, modelId: string, apiKey: string) => {
-			const cfg = getUserConfig
-				? JSON.parse(JSON.stringify(getUserConfig()))
-				: loadUserConfig();
-			if (!cfg.providers) cfg.providers = {};
-			if (provider.needsApiKey && apiKey) {
-				cfg.providers[provider.id] = {
-					apiKey: `env:${provider.envVar}`,
-					baseUrl: provider.baseUrl,
-				};
-			} else if (provider.id === 'local-fast') {
-				cfg.providers[provider.id] = {
-					baseUrl: localFastState.running
-						? localFastState.baseUrl
-						: provider.baseUrl,
-				};
-			} else if (provider.id === 'ollama') {
-				cfg.providers[provider.id] = {
-					baseUrl: ollamaState.running
-						? 'http://localhost:11434/v1'
-						: provider.baseUrl,
-				};
-			}
-			const fullModelId = `${provider.id}/${modelId}`;
-			cfg.defaultModel = fullModelId;
-			writeUserConfig(cfg);
-
-			if (apiKey) cacheApiKey(provider.id, apiKey);
-
-			setStep({ id: 'connected', provider, modelId });
-		},
-		[ollamaState.running, localFastState, getUserConfig],
-	);
-
-	const doValidate = useCallback(
-		(provider: ProviderEntry, apiKey: string, modelId: string) => {
-			setStep({ id: 'validating', provider, modelId });
-			const headers: Record<string, string> =
-				provider.authStyle === 'x-api-key'
-					? { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
-					: { Authorization: `Bearer ${apiKey}` };
-			fetch(`${provider.baseUrl}/models`, {
-				headers,
-				signal: AbortSignal.timeout(8000),
-			})
-				.then((res) => {
-					if (res.ok) {
-						finishConnect(provider, modelId, apiKey);
-					} else {
-						setStep({
-							id: 'error',
-							provider,
-							modelId,
-							error: `${res.status} ${res.statusText} \u2014 key may still work for chat`,
-						});
-					}
+		const doValidate = useCallback(
+			(provider: ProviderEntry, apiKey: string, modelId: string) => {
+				setStep({ id: 'validating', provider, modelId });
+				const headers: Record<string, string> =
+					provider.authStyle === 'x-api-key'
+						? { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+						: { Authorization: `Bearer ${apiKey}` };
+				fetch(`${provider.baseUrl}/models`, {
+					headers,
+					signal: AbortSignal.timeout(8000),
 				})
-				.catch((err) => {
-					setStep({
-						id: 'error',
-						provider,
-						modelId,
-						error: `Network error: ${err.message}`,
-					});
-				});
-		},
-		[finishConnect],
-	);
-
-	const handleKey = useCallback(
-		(inputChar: string, key: any) => {
-			const s = step;
-
-			if (s.id === 'provider-select') {
-				const providers = buildProviderList(userConfig);
-				const primaryCount = getPrimaryProviders().length;
-				const visibleCount = s.showMore ? providers.length : primaryCount;
-
-				if (key.upArrow) {
-					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
-					return;
-				}
-				if (key.downArrow) {
-					const max = visibleCount;
-					setStep({ ...s, cursor: Math.min(max, s.cursor + 1) });
-					return;
-				}
-				if (key.escape) {
-					onDone('');
-					return;
-				}
-				if (key.return) {
-					if (s.cursor === primaryCount && !s.showMore) {
-						setStep({ ...s, showMore: true, cursor: primaryCount });
-						return;
-					}
-					const idx = s.showMore
-						? s.cursor
-						: Math.min(s.cursor, primaryCount - 1);
-					const provider = providers[idx];
-					if (!provider) return;
-
-					if (provider.id === 'local-fast') {
-						if (localFastState.running && localFastState.model) {
-							finishConnect(provider, localFastState.model, '');
+					.then((res) => {
+						if (res.ok) {
+							finishConnect(provider, modelId, apiKey);
 						} else {
 							setStep({
 								id: 'error',
 								provider,
-								modelId: '',
-								error:
-									'Local Fast is not running. Start it with: wmind-serve start',
+								modelId,
+								error: `${res.status} ${res.statusText} \u2014 key may still work for chat`,
 							});
 						}
-					} else if (!provider.needsApiKey) {
-						const initModels = [...provider.models];
+					})
+					.catch((err) => {
 						setStep({
-							id: 'model-select',
+							id: 'error',
 							provider,
-							cursor: 0,
-							ollamaModels: ollamaState.running ? ollamaState.models : [],
-							localFastModels: [],
-							mergedModels: initModels,
-							discovering: false,
+							modelId,
+							error: `Network error: ${err.message}`,
 						});
-					} else {
-						const existingKey = resolveApiKey(provider, userConfig);
-						const initModels = [...provider.models];
-						if (existingKey && provider.canValidate) {
+					});
+			},
+			[finishConnect],
+		);
+
+		const handleKey = useCallback(
+			(inputChar: string, key: any) => {
+				const s = step;
+
+				if (s.id === 'provider-select') {
+					const providers = buildProviderList(userConfig);
+					const primaryCount = getPrimaryProviders().length;
+					const visibleCount = s.showMore ? providers.length : primaryCount;
+
+					if (key.upArrow) {
+						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
+						return;
+					}
+					if (key.downArrow) {
+						const max = visibleCount;
+						setStep({ ...s, cursor: Math.min(max, s.cursor + 1) });
+						return;
+					}
+					if (key.escape) {
+						onDone('');
+						return;
+					}
+					if (key.return) {
+						if (s.cursor === primaryCount && !s.showMore) {
+							setStep({ ...s, showMore: true, cursor: primaryCount });
+							return;
+						}
+						const idx = s.showMore ? s.cursor : Math.min(s.cursor, primaryCount - 1);
+						const provider = providers[idx];
+						if (!provider) return;
+
+						if (provider.id === 'local-fast') {
+							if (localFastState.running && localFastState.model) {
+								finishConnect(provider, localFastState.model, '');
+							} else {
+								setStep({
+									id: 'error',
+									provider,
+									modelId: '',
+									error: 'Local Fast is not running. Start it with: wmind-serve start',
+								});
+							}
+						} else if (!provider.needsApiKey) {
+							const initModels = [...provider.models];
 							setStep({
 								id: 'model-select',
 								provider,
 								cursor: 0,
-								ollamaModels: [],
-								localFastModels: [],
-								mergedModels: initModels,
-								discovering: true,
-							});
-							getMergedModels(provider, userConfig).then((merged) => {
-								setStep((prev) =>
-									prev.id === 'model-select' && prev.provider.id === provider.id
-										? { ...prev, mergedModels: merged, discovering: false }
-										: prev,
-								);
-							});
-						} else if (existingKey) {
-							setStep({
-								id: 'model-select',
-								provider,
-								cursor: 0,
-								ollamaModels: [],
+								ollamaModels: ollamaState.running ? ollamaState.models : [],
 								localFastModels: [],
 								mergedModels: initModels,
 								discovering: false,
 							});
 						} else {
-							const firstModel = provider.models[0];
-							setStep({
-								id: 'api-key',
-								provider,
-								modelId: firstModel?.id || '',
-								input: '',
-								masked: '',
-								error: '',
-							});
-						}
-					}
-				}
-				return;
-			}
-
-			if (s.id === 'model-select') {
-				const models = buildModelList(
-					s.provider,
-					s.ollamaModels,
-					s.localFastModels,
-					s.mergedModels,
-				);
-				if (key.upArrow) {
-					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
-					return;
-				}
-				if (key.downArrow) {
-					setStep({ ...s, cursor: Math.min(models.length - 1, s.cursor + 1) });
-					return;
-				}
-				if (key.escape) {
-					setStep({ id: 'provider-select', cursor: 0, showMore: false });
-					return;
-				}
-				if (key.return) {
-					const entry = models[s.cursor];
-					if (!entry) return;
-					if (entry.type === 'separator') return;
-
-					const modelId = entry.modelId;
-					if (s.provider.needsApiKey) {
-						const existingKey = resolveApiKey(s.provider, userConfig);
-						if (existingKey) {
-							if (s.provider.canValidate) {
-								doValidate(s.provider, existingKey, modelId);
+							const existingKey = resolveApiKey(provider, userConfig);
+							const initModels = [...provider.models];
+							if (existingKey && provider.canValidate) {
+								setStep({
+									id: 'model-select',
+									provider,
+									cursor: 0,
+									ollamaModels: [],
+									localFastModels: [],
+									mergedModels: initModels,
+									discovering: true,
+								});
+								getMergedModels(provider, userConfig).then((merged) => {
+									setStep((prev) =>
+										prev.id === 'model-select' &&
+										prev.provider.id === provider.id
+											? { ...prev, mergedModels: merged, discovering: false }
+											: prev,
+									);
+								});
+							} else if (existingKey) {
+								setStep({
+									id: 'model-select',
+									provider,
+									cursor: 0,
+									ollamaModels: [],
+									localFastModels: [],
+									mergedModels: initModels,
+									discovering: false,
+								});
 							} else {
-								finishConnect(s.provider, modelId, existingKey);
+								const firstModel = provider.models[0];
+								setStep({
+									id: 'api-key',
+									provider,
+									modelId: firstModel?.id || '',
+									input: '',
+									masked: '',
+									error: '',
+								});
 							}
-						} else {
-							setStep({
-								id: 'api-key',
-								provider: s.provider,
-								modelId,
-								input: '',
-								masked: '',
-								error: '',
-							});
 						}
-					} else {
-						finishConnect(s.provider, modelId, '');
 					}
-				}
-				return;
-			}
-
-			if (s.id === 'api-key') {
-				if (key.escape) {
-					setStep({
-						id: 'model-select',
-						provider: s.provider,
-						cursor: 0,
-						ollamaModels: ollamaState.models,
-						localFastModels: [],
-						mergedModels: [...s.provider.models],
-						discovering: false,
-					});
 					return;
 				}
-				if (key.return) {
-					const apiKey = s.input.trim();
-					if (!apiKey) {
-						setStep({ ...s, error: 'API key is required' });
+
+				if (s.id === 'model-select') {
+					const models = buildModelList(
+						s.provider,
+						s.ollamaModels,
+						s.localFastModels,
+						s.mergedModels,
+					);
+					if (key.upArrow) {
+						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
 						return;
 					}
-					if (s.provider.canValidate) {
-						doValidate(s.provider, apiKey, s.modelId);
-					} else {
-						finishConnect(s.provider, s.modelId, apiKey);
+					if (key.downArrow) {
+						setStep({ ...s, cursor: Math.min(models.length - 1, s.cursor + 1) });
+						return;
+					}
+					if (key.escape) {
+						setStep({ id: 'provider-select', cursor: 0, showMore: false });
+						return;
+					}
+					if (key.return) {
+						const entry = models[s.cursor];
+						if (!entry) return;
+						if (entry.type === 'separator') return;
+
+						const modelId = entry.modelId;
+						if (s.provider.needsApiKey) {
+							const existingKey = resolveApiKey(s.provider, userConfig);
+							if (existingKey) {
+								if (s.provider.canValidate) {
+									doValidate(s.provider, existingKey, modelId);
+								} else {
+									finishConnect(s.provider, modelId, existingKey);
+								}
+							} else {
+								setStep({
+									id: 'api-key',
+									provider: s.provider,
+									modelId,
+									input: '',
+									masked: '',
+									error: '',
+								});
+							}
+						} else {
+							finishConnect(s.provider, modelId, '');
+						}
 					}
 					return;
 				}
-				if (key.backspace) {
-					const newInput = s.input.slice(0, -1);
+
+				if (s.id === 'api-key') {
+					if (key.escape) {
+						setStep({
+							id: 'model-select',
+							provider: s.provider,
+							cursor: 0,
+							ollamaModels: ollamaState.models,
+							localFastModels: [],
+							mergedModels: [...s.provider.models],
+							discovering: false,
+						});
+						return;
+					}
+					if (key.return) {
+						const apiKey = s.input.trim();
+						if (!apiKey) {
+							setStep({ ...s, error: 'API key is required' });
+							return;
+						}
+						if (s.provider.canValidate) {
+							doValidate(s.provider, apiKey, s.modelId);
+						} else {
+							finishConnect(s.provider, s.modelId, apiKey);
+						}
+						return;
+					}
+					if (key.backspace) {
+						const newInput = s.input.slice(0, -1);
+						setStep({
+							...s,
+							input: newInput,
+							masked: maskInput(newInput),
+							error: '',
+						});
+						return;
+					}
+					if (!key.ctrl && !key.meta && inputChar) {
+						const newInput = s.input + inputChar;
+						setStep({
+							...s,
+							input: newInput,
+							masked: maskInput(newInput),
+							error: '',
+						});
+					}
+					return;
+				}
+
+				if (s.id === 'validating') {
+					if (key.escape) {
+						onDone('Validation in progress...');
+					}
+					return;
+				}
+
+				if (s.id === 'connected') {
+					if (key.return || key.escape) {
+						const fullModelId = `${s.provider.id}/${s.modelId}`;
+						const keyMsg = s.provider.envVar
+							? `Set ${s.provider.envVar} in your shell profile`
+							: 'Key active for this session';
+						onDone(
+							`Connected to ${s.provider.displayName}. Model: ${fullModelId}. ${keyMsg}.`,
+							fullModelId,
+						);
+					}
+					return;
+				}
+
+				if (s.id === 'error') {
+					if (key.return) {
+						setStep({
+							id: 'api-key',
+							provider: s.provider,
+							modelId: s.modelId,
+							input: '',
+							masked: '',
+							error: '',
+						});
+						return;
+					}
+					if (key.escape) {
+						onDone(`Connection failed: ${s.error}`);
+					}
+					return;
+				}
+			},
+			[step, userConfig, ollamaState, localFastState, onDone, doValidate, finishConnect],
+		);
+
+		const handlePaste = useCallback(
+			(text: string) => {
+				const s = step;
+				if (s.id === 'api-key') {
+					const newInput = s.input + text;
 					setStep({
 						...s,
 						input: newInput,
 						masked: maskInput(newInput),
 						error: '',
 					});
-					return;
 				}
-				if (!key.ctrl && !key.meta && inputChar) {
-					const newInput = s.input + inputChar;
-					setStep({
-						...s,
-						input: newInput,
-						masked: maskInput(newInput),
-						error: '',
-					});
-				}
-				return;
-			}
+			},
+			[step],
+		);
 
-			if (s.id === 'validating') {
-				if (key.escape) {
-					onDone('Validation in progress...');
-				}
-				return;
-			}
+		useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [handleKey, handlePaste]);
 
-			if (s.id === 'connected') {
-				if (key.return || key.escape) {
-					const fullModelId = `${s.provider.id}/${s.modelId}`;
-					const keyMsg = s.provider.envVar
-						? `Set ${s.provider.envVar} in your shell profile`
-						: 'Key active for this session';
-					onDone(
-						`Connected to ${s.provider.displayName}. Model: ${fullModelId}. ${keyMsg}.`,
-						fullModelId,
-					);
-				}
-				return;
-			}
-
-			if (s.id === 'error') {
-				if (key.return) {
-					setStep({
-						id: 'api-key',
-						provider: s.provider,
-						modelId: s.modelId,
-						input: '',
-						masked: '',
-						error: '',
-					});
-					return;
-				}
-				if (key.escape) {
-					onDone(`Connection failed: ${s.error}`);
-				}
-				return;
-			}
-		},
-		[
-			step,
-			userConfig,
-			ollamaState,
-			localFastState,
-			onDone,
-			doValidate,
-			finishConnect,
-		],
-	);
-
-	const handlePaste = useCallback(
-		(text: string) => {
-			const s = step;
-			if (s.id === 'api-key') {
-				const newInput = s.input + text;
-				setStep({
-					...s,
-					input: newInput,
-					masked: maskInput(newInput),
-					error: '',
-				});
-			}
-		},
-		[step],
-	);
-
-	useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [
-		handleKey,
-		handlePaste,
-	]);
-
-	return h(
-		'box',
-		{
-			flexDirection: 'column',
-			flexGrow: 1,
-			backgroundColor: '#0a0a1a',
-			paddingX: 2,
-			paddingY: 1,
-			overflow: 'hidden',
-		},
-		renderStep(step, userConfig, ollamaState, localFastState),
-		h(
+		return h(
 			'box',
-			{ marginTop: 1 },
-			h('text', {
-				dimColor: true,
-				content: 'Esc = back \u00b7 Enter = confirm',
-			}),
-		),
-	);
-});
+			{
+				flexDirection: 'column',
+				flexGrow: 1,
+				backgroundColor: '#0a0a1a',
+				paddingX: 2,
+				paddingY: 1,
+				overflow: 'hidden',
+			},
+			renderStep(step, userConfig, ollamaState, localFastState),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', {
+					dimColor: true,
+					content: 'Esc = back \u00b7 Enter = confirm',
+				}),
+			),
+		);
+	},
+);
 
 interface ModelListEntry {
 	type: 'model' | 'separator' | 'pull-hint';
@@ -534,8 +514,7 @@ function buildModelList(
 	mergedModels?: ModelEntry[],
 ): ModelListEntry[] {
 	if (provider.id === 'local-fast') {
-		const models =
-			localFastModels.length > 0 ? localFastModels : provider.models;
+		const models = localFastModels.length > 0 ? localFastModels : provider.models;
 		return models.map((m) => ({
 			type: 'model' as const,
 			modelId: m.id,
@@ -556,9 +535,7 @@ function buildModelList(
 
 		const curatedNotLocal = provider.models.filter((cm) => {
 			const base = cm.id.split(':')[0];
-			return !ollamaModels.some(
-				(lm) => lm.name === cm.id || lm.name.startsWith(base),
-			);
+			return !ollamaModels.some((lm) => lm.name === cm.id || lm.name.startsWith(base));
 		});
 
 		if (curatedNotLocal.length > 0) {
@@ -603,9 +580,7 @@ function renderStep(
 	if (s.id === 'provider-select') {
 		const providers = buildProviderList(userConfig);
 		const primaryCount = getPrimaryProviders().length;
-		const visibleProviders = s.showMore
-			? providers
-			: providers.slice(0, primaryCount);
+		const visibleProviders = s.showMore ? providers : providers.slice(0, primaryCount);
 
 		return h(
 			'box',

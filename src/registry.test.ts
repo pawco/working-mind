@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	type AgentInstance,
-	AgentRegistry,
-	type McpToolProvider,
-} from './registry.js';
+import { type AgentInstance, AgentRegistry, type McpToolProvider } from './registry.js';
 import type { ToolDef, ToolPack } from './sdk/tool.js';
 
 const mockPack: ToolPack = {
@@ -314,15 +310,9 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 
 		const agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(4);
-		expect(agent.tools.map((t) => t.name)).toContain(
-			'mcp__memory__search_nodes',
-		);
-		expect(agent.tools.map((t) => t.name)).toContain(
-			'mcp__memory__create_entities',
-		);
-		expect(agent.tools.map((t) => t.name)).toContain(
-			'mcp__brave-search__brave_web_search',
-		);
+		expect(agent.tools.map((t) => t.name)).toContain('mcp__memory__search_nodes');
+		expect(agent.tools.map((t) => t.name)).toContain('mcp__memory__create_entities');
+		expect(agent.tools.map((t) => t.name)).toContain('mcp__brave-search__brave_web_search');
 		expect(agent.tools.map((t) => t.name)).toContain('mcp__firecrawl__scrape');
 	});
 
@@ -340,9 +330,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 		const agent = registry.getActive() as AgentInstance;
 		expect(agent.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 		expect(agent.systemPrompt).toContain('- mcp__memory__search_nodes');
-		expect(agent.systemPrompt).toContain(
-			'- mcp__brave-search__brave_web_search',
-		);
+		expect(agent.systemPrompt).toContain('- mcp__brave-search__brave_web_search');
 		expect(agent.systemPrompt).toContain('- mcp__firecrawl__scrape');
 	});
 
@@ -370,9 +358,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 		const agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(2);
 		expect(agent.tools.every((t) => t.mcpServer === 'memory')).toBe(true);
-		expect(agent.tools.map((t) => t.name)).not.toContain(
-			'mcp__brave-search__brave_web_search',
-		);
+		expect(agent.tools.map((t) => t.name)).not.toContain('mcp__brave-search__brave_web_search');
 	});
 
 	it('includes shared MCP tools from other packs via alwaysVisible', () => {
@@ -402,15 +388,9 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 		});
 
 		const agent = registry.getActive() as AgentInstance;
-		expect(agent.tools.map((t) => t.name)).toContain(
-			'mcp__memory__search_nodes',
-		);
-		expect(agent.tools.map((t) => t.name)).toContain(
-			'mcp__brave-search__brave_web_search',
-		);
-		expect(agent.tools.map((t) => t.name)).not.toContain(
-			'mcp__firecrawl__scrape',
-		);
+		expect(agent.tools.map((t) => t.name)).toContain('mcp__memory__search_nodes');
+		expect(agent.tools.map((t) => t.name)).toContain('mcp__brave-search__brave_web_search');
+		expect(agent.tools.map((t) => t.name)).not.toContain('mcp__firecrawl__scrape');
 	});
 
 	it('no packName returns all MCP tools unfiltered', () => {
@@ -449,9 +429,7 @@ describe('getFilteredMcpTools with mcpServers on ToolPack', () => {
 		agent = registry.getActive() as AgentInstance;
 		expect(agent.tools).toHaveLength(4);
 		expect(agent.systemPrompt).toContain('- mcp__memory__search_nodes');
-		expect(agent.systemPrompt).toContain(
-			'- mcp__brave-search__brave_web_search',
-		);
+		expect(agent.systemPrompt).toContain('- mcp__brave-search__brave_web_search');
 		expect(agent.systemPrompt).toContain('- mcp__firecrawl__scrape');
 		expect(agent.systemPrompt).not.toContain('{{AVAILABLE_TOOLS}}');
 	});

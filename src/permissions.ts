@@ -31,10 +31,7 @@ export function shouldConfirm(tool: ToolDef, userConfig?: UserConfig): boolean {
 	return false;
 }
 
-export function isDenied(
-	tool: ToolDef,
-	config: PermissionConfig = DEFAULT_PERMISSIONS,
-): boolean {
+export function isDenied(tool: ToolDef, config: PermissionConfig = DEFAULT_PERMISSIONS): boolean {
 	if (tool.origin === 'mcp') return false;
 	if (tool.destructive) return config.destructive === 'deny';
 	if (tool.longRunning) return config.longRunning === 'deny';

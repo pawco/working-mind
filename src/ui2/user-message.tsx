@@ -22,10 +22,6 @@ export function UserMessage({ entry, collapsed }: UserMessageProps) {
 				h('text', { content: ' You', bold: true }),
 			),
 		},
-		h(
-			'box',
-			{ paddingLeft: 1 },
-			h('text', { content: sanitizeUntrusted(entry.content) }),
-		),
+		h('box', { paddingLeft: 1 }, h('text', { content: sanitizeUntrusted(entry.content) })),
 	);
 }

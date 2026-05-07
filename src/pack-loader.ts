@@ -13,12 +13,7 @@ import {
 	type PackManifest,
 	packManifestSchema,
 } from './schemas.js';
-import type {
-	PersonaDef,
-	SkillDef,
-	SlashCommand,
-	ToolPack,
-} from './sdk/tool.js';
+import type { PersonaDef, SkillDef, SlashCommand, ToolPack } from './sdk/tool.js';
 import { parseSkillMd } from './skill-loader.js';
 import type { SkillRegistry } from './skill-registry.js';
 
@@ -42,8 +37,7 @@ const USER_PACKS_DIR = getPacksDir();
 
 export function findPackDir(name: string): string | null {
 	const builtin = join(BUILTIN_PACKS_DIR, name);
-	if (existsSync(builtin) && existsSync(join(builtin, 'pack.json')))
-		return builtin;
+	if (existsSync(builtin) && existsSync(join(builtin, 'pack.json'))) return builtin;
 
 	const user = join(USER_PACKS_DIR, name);
 	if (existsSync(user) && existsSync(join(user, 'pack.json'))) return user;
@@ -58,11 +52,7 @@ export function findPackDir(name: string): string | null {
 		if (existsSync(manifestPath)) {
 			const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'));
 			const entry = manifest[name];
-			if (
-				entry &&
-				!entry.linked &&
-				existsSync(join(USER_PACKS_DIR, name, 'pack.json'))
-			) {
+			if (entry && !entry.linked && existsSync(join(USER_PACKS_DIR, name, 'pack.json'))) {
 				return join(USER_PACKS_DIR, name);
 			}
 		}
@@ -162,19 +152,14 @@ export function readSkills(packDir: string): SkillDef[] {
 	return skills;
 }
 
-export function readCommands(
-	packDir: string,
-	manifest: PackManifest,
-): SlashCommand[] {
+export function readCommands(packDir: string, manifest: PackManifest): SlashCommand[] {
 	const commands: SlashCommand[] = [];
 	if (!manifest.commands) return commands;
 
 	for (const [name, filePath] of Object.entries(manifest.commands)) {
 		const fullPath = join(packDir, filePath);
 		if (!existsSync(fullPath)) {
-			throw new Error(
-				`Command "${name}" references file "${filePath}" which does not exist`,
-			);
+			throw new Error(`Command "${name}" references file "${filePath}" which does not exist`);
 		}
 		try {
 			const content = readFileSync(fullPath, 'utf-8');
@@ -185,9 +170,7 @@ export function readCommands(
 				);
 			}
 			if (!/^[a-z][a-z0-9-]{1,29}$/.test(name)) {
-				throw new Error(
-					`Command name "${name}" must match ^[a-z][a-z0-9-]{1,29}$`,
-				);
+				throw new Error(`Command name "${name}" must match ^[a-z][a-z0-9-]{1,29}$`);
 			}
 			commands.push(cmd);
 		} catch (err: any) {
@@ -242,9 +225,7 @@ export async function buildMcpConfigs(
 			}
 		}
 
-		const hasInputDirArg = command.some(
-			(a) => a === '$INPUT_DIR' || a.includes('$INPUT_DIR'),
-		);
+		const hasInputDirArg = command.some((a) => a === '$INPUT_DIR' || a.includes('$INPUT_DIR'));
 		if (hasInputDirArg && server.pathPrompt) {
 			const inputDirValue = process.env.INPUT_DIR;
 			if (inputDirValue) {
@@ -296,10 +277,7 @@ export async function buildMcpConfigs(
 const TOOLS_MARKER_START = '<!-- AVAILABLE_TOOLS -->';
 const TOOLS_MARKER_END = '<!-- /AVAILABLE_TOOLS -->';
 
-export function replaceAvailableTools(
-	prompt: string,
-	availableTools: string[],
-): string {
+export function replaceAvailableTools(prompt: string, availableTools: string[]): string {
 	const toolList =
 		availableTools.length > 0
 			? availableTools.map((t) => `- ${t}`).join('\n')
@@ -316,9 +294,7 @@ export function replaceAvailableTools(
 		const endIdx = prompt.indexOf(TOOLS_MARKER_END, startIdx);
 		if (endIdx !== -1) {
 			return (
-				prompt.slice(0, startIdx) +
-				block +
-				prompt.slice(endIdx + TOOLS_MARKER_END.length)
+				prompt.slice(0, startIdx) + block + prompt.slice(endIdx + TOOLS_MARKER_END.length)
 			);
 		}
 	}
@@ -326,10 +302,7 @@ export function replaceAvailableTools(
 	return prompt;
 }
 
-export function validateCuration(
-	manifest: PackManifest,
-	packDir: string,
-): void {
+export function validateCuration(manifest: PackManifest, packDir: string): void {
 	if (!manifest.curation) return;
 	const { summarize, export: exportPath } = manifest.curation;
 	if (summarize && !existsSync(join(packDir, summarize))) {
@@ -379,10 +352,7 @@ export function replaceCurationPlaceholders(
 		);
 	}
 	if (result.includes('{{SOURCE_COUNT}}')) {
-		result = result.replace(
-			/\{\{SOURCE_COUNT}}/g,
-			String(extras?.sourceCount ?? 0),
-		);
+		result = result.replace(/\{\{SOURCE_COUNT}}/g, String(extras?.sourceCount ?? 0));
 	}
 	return result;
 }
@@ -393,9 +363,7 @@ export async function loadPack(
 	skillRegistry?: SkillRegistry,
 ): Promise<LoadedPack> {
 	const manifest = readPackManifest(packDir);
-	const systemPrompt = manifest.prompt
-		? readPromptFile(packDir, manifest.prompt)
-		: '';
+	const systemPrompt = manifest.prompt ? readPromptFile(packDir, manifest.prompt) : '';
 	const personas = readPersonas(packDir, manifest.personas);
 	const skills = readSkills(packDir);
 	const commands = readCommands(packDir, manifest);
@@ -458,9 +426,7 @@ export async function connectPackMcpServers(
 			if (info?.status === 'connected') {
 				const toolCount = info.tools.length;
 				console.error(
-					pc.dim(
-						`  Connected: ${name} (${toolCount} tool${toolCount !== 1 ? 's' : ''})`,
-					),
+					pc.dim(`  Connected: ${name} (${toolCount} tool${toolCount !== 1 ? 's' : ''})`),
 				);
 				connected.push(name);
 			} else {
@@ -469,9 +435,7 @@ export async function connectPackMcpServers(
 				failed.push(name);
 			}
 		} catch (err: any) {
-			console.error(
-				pc.red(`  Failed: ${name} -- ${shortenError(err.message)}`),
-			);
+			console.error(pc.red(`  Failed: ${name} -- ${shortenError(err.message)}`));
 			failed.push(name);
 		}
 	}
@@ -480,8 +444,7 @@ export async function connectPackMcpServers(
 }
 
 function shortenError(msg: string): string {
-	if (msg.includes('ECONNREFUSED'))
-		return 'connection refused (is the server running?)';
+	if (msg.includes('ECONNREFUSED')) return 'connection refused (is the server running?)';
 	if (msg.length > 200) return `${msg.slice(0, 200)}...`;
 	return msg;
 }

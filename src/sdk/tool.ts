@@ -4,10 +4,7 @@ export interface ToolDef {
 	name: string;
 	description: string;
 	parameters: Record<string, any>;
-	execute: (
-		args: Record<string, any>,
-		onOutput?: (chunk: string) => void,
-	) => Promise<any>;
+	execute: (args: Record<string, any>, onOutput?: (chunk: string) => void) => Promise<any>;
 	destructive?: boolean;
 	longRunning?: boolean;
 	origin?: 'builtin' | 'pack' | 'mcp';
@@ -86,23 +83,16 @@ function matchesToolPattern(pattern: string, toolName: string): boolean {
 }
 
 function filterByPatterns(tools: ToolDef[], patterns: string[]): ToolDef[] {
-	return tools.filter((t) =>
-		patterns.some((p) => matchesToolPattern(p, t.name)),
-	);
+	return tools.filter((t) => patterns.some((p) => matchesToolPattern(p, t.name)));
 }
 
-export function applyToolFilter(
-	tools: ToolDef[],
-	filter?: ToolFilter,
-): ToolDef[] {
+export function applyToolFilter(tools: ToolDef[], filter?: ToolFilter): ToolDef[] {
 	if (!filter) return tools;
 
 	const presets: Record<string, ToolFilter> = {
 		all: {},
 		readonly: {
-			exclude: tools
-				.filter((t) => t.destructive || t.longRunning)
-				.map((t) => t.name),
+			exclude: tools.filter((t) => t.destructive || t.longRunning).map((t) => t.name),
 		},
 		none: { include: [] },
 	};
@@ -110,10 +100,7 @@ export function applyToolFilter(
 	let resolved: ToolFilter;
 	if (filter.preset) {
 		const preset = presets[filter.preset] ?? {};
-		const mergedExclude = [
-			...(preset.exclude ?? []),
-			...(filter.exclude ?? []),
-		];
+		const mergedExclude = [...(preset.exclude ?? []), ...(filter.exclude ?? [])];
 		resolved = {
 			include: filter.include ?? preset.include,
 			exclude: mergedExclude.length > 0 ? mergedExclude : undefined,

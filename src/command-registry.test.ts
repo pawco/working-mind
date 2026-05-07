@@ -111,9 +111,7 @@ describe('CommandRegistry', () => {
 		};
 		reg.register(cmd);
 		const resolved = reg.resolve('/echo hello world');
-		const result = await resolved?.command.handler(
-			mockCtx({ args: resolved?.args }),
-		);
+		const result = await resolved?.command.handler(mockCtx({ args: resolved?.args }));
 		expect(result).toEqual({ type: 'message', content: 'hello world' });
 	});
 
@@ -194,11 +192,7 @@ describe('CommandRegistry', () => {
 			},
 			'researcher',
 		);
-		expect(reg.resolve('/marketing:analyze')?.command.description).toBe(
-			'Marketing analyze',
-		);
-		expect(reg.resolve('/researcher:analyze')?.command.description).toBe(
-			'Researcher analyze',
-		);
+		expect(reg.resolve('/marketing:analyze')?.command.description).toBe('Marketing analyze');
+		expect(reg.resolve('/researcher:analyze')?.command.description).toBe('Researcher analyze');
 	});
 });

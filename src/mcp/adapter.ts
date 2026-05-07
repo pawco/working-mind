@@ -7,9 +7,7 @@ const MAX_RATE_LIMIT_RETRIES = 1;
 
 class McpToolTimeoutError extends Error {
 	constructor(toolName: string) {
-		super(
-			`MCP tool "${toolName}" timed out after ${MCP_TOOL_TIMEOUT_MS / 1000}s`,
-		);
+		super(`MCP tool "${toolName}" timed out after ${MCP_TOOL_TIMEOUT_MS / 1000}s`);
 		this.name = 'McpToolTimeoutError';
 	}
 }
@@ -107,25 +105,16 @@ export function mcpToolToToolDef(
 		name: namespacedName,
 		description: `[${serverName}] ${mcpTool.description || mcpTool.name}`,
 		parameters: mcpTool.inputSchema || { type: 'object', properties: {} },
-		argSchema: mcpTool.inputSchema
-			? jsonSchemaToZod(mcpTool.inputSchema)
-			: undefined,
+		argSchema: mcpTool.inputSchema ? jsonSchemaToZod(mcpTool.inputSchema) : undefined,
 		execute: async (args: Record<string, any>) => {
 			const result = await callToolWithRetry(client, mcpTool.name, args);
-			const content = extractContent(
-				result.content,
-				(result as any).structuredContent,
-			);
+			const content = extractContent(result.content, (result as any).structuredContent);
 			if (result.isError) {
-				throw new Error(
-					typeof content === 'string' ? content : JSON.stringify(content),
-				);
+				throw new Error(typeof content === 'string' ? content : JSON.stringify(content));
 			}
 			return content;
 		},
-		destructive:
-			serverName === 'filesystem' &&
-			FILESYSTEM_DESTRUCTIVE_TOOLS.has(mcpTool.name),
+		destructive: serverName === 'filesystem' && FILESYSTEM_DESTRUCTIVE_TOOLS.has(mcpTool.name),
 		longRunning: !isReadOnly,
 		origin: 'mcp',
 		mcpServer: serverName,
@@ -137,8 +126,7 @@ function extractContent(content: any, structuredContent?: any): any {
 		if (structuredContent) return JSON.stringify(structuredContent);
 		return content;
 	}
-	if (content.length === 1 && content[0].type === 'text')
-		return content[0].text;
+	if (content.length === 1 && content[0].type === 'text') return content[0].text;
 	if (content.length === 0) {
 		if (structuredContent) return JSON.stringify(structuredContent);
 		return '';

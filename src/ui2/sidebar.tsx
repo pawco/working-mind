@@ -107,15 +107,9 @@ export function Sidebar(props: SidebarProps) {
 	const sepW = Math.max(1, width - 4);
 	const sep = '-'.repeat(sepW);
 	const activeAgent = agents.find((a) => a.id === activeId);
-	const sessionDuration = sessionStart
-		? formatSidebarDuration(Date.now() - sessionStart)
-		: null;
+	const sessionDuration = sessionStart ? formatSidebarDuration(Date.now() - sessionStart) : null;
 	const priceBadge = modelEntry
-		? formatPriceBadge(
-				modelEntry.inputPricePer1M,
-				modelEntry.outputPricePer1M,
-				isLocal,
-			)
+		? formatPriceBadge(modelEntry.inputPricePer1M, modelEntry.outputPricePer1M, isLocal)
 		: provider === 'ollama'
 			? '[local]'
 			: '[?]';
@@ -163,11 +157,7 @@ export function Sidebar(props: SidebarProps) {
 		const displayPack = packName || activeAgent?.packName;
 		const parts: string[] = [' '];
 		if (displayPack) parts.push(displayPack);
-		if (
-			displayPack &&
-			activeAgent?.persona &&
-			activeAgent.persona !== 'default'
-		)
+		if (displayPack && activeAgent?.persona && activeAgent.persona !== 'default')
 			parts.push('/');
 		if (activeAgent?.persona && activeAgent.persona !== 'default')
 			parts.push(activeAgent.persona);
@@ -194,9 +184,7 @@ export function Sidebar(props: SidebarProps) {
 			content: ` ${msgCount} msgs | ~${approxTokens} tok`,
 			fg: '#7982a9',
 		}),
-		sessionDuration
-			? h('text', { content: ` ${sessionDuration}`, fg: '#7982a9' })
-			: null,
+		sessionDuration ? h('text', { content: ` ${sessionDuration}`, fg: '#7982a9' }) : null,
 		maxTurns && maxTurns > 0
 			? h('text', {
 					content: ` turn ${turnCount ?? 0}/${maxTurns}`,
@@ -206,9 +194,7 @@ export function Sidebar(props: SidebarProps) {
 		sessionCost && sessionCost > 0
 			? h('text', { content: ` ${formatCost(sessionCost)}`, fg: '#7982a9' })
 			: null,
-		mcpConnected > 0
-			? h('text', { content: ` @${mcpConnected} mcp`, fg: '#7982a9' })
-			: null,
+		mcpConnected > 0 ? h('text', { content: ` @${mcpConnected} mcp`, fg: '#7982a9' }) : null,
 	);
 
 	// Projects
@@ -332,15 +318,11 @@ export function Sidebar(props: SidebarProps) {
 			}
 		}
 		if (s.status === 'error' && s.error) {
-			children.push(
-				h('text', { content: `   ${s.error.slice(0, 16)}`, fg: 'red' }),
-			);
+			children.push(h('text', { content: `   ${s.error.slice(0, 16)}`, fg: 'red' }));
 		}
 	}
 	if (servers.length > 6) {
-		children.push(
-			h('text', { content: ` +${servers.length - 6} more`, fg: '#7982a9' }),
-		);
+		children.push(h('text', { content: ` +${servers.length - 6} more`, fg: '#7982a9' }));
 	}
 
 	// Status

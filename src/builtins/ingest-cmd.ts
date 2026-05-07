@@ -1,10 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type {
-	CommandContext,
-	CommandResult,
-	SlashCommand,
-} from '../sdk/command.js';
+import type { CommandContext, CommandResult, SlashCommand } from '../sdk/command.js';
 
 const MAX_FILE_SIZE = 50_000;
 const CONFIRMED_FLAG = '--confirmed';
@@ -16,9 +12,7 @@ function isMemoryConnected(ctx: CommandContext): boolean {
 export function listMdFiles(): string[] {
 	const cwd = process.cwd();
 	try {
-		return readdirSync(cwd).filter(
-			(f) => f.endsWith('.md') && existsSync(join(cwd, f)),
-		);
+		return readdirSync(cwd).filter((f) => f.endsWith('.md') && existsSync(join(cwd, f)));
 	} catch {
 		return [];
 	}
@@ -40,18 +34,14 @@ export const ingestCmd: SlashCommand = {
 	handler: (ctx: CommandContext): CommandResult => {
 		const raw = ctx.args.trim();
 		const confirmed = raw.includes(CONFIRMED_FLAG);
-		const filename = raw
-			.replace(CONFIRMED_FLAG, '')
-			.trim()
-			.replace(/\s+/g, ' ');
+		const filename = raw.replace(CONFIRMED_FLAG, '').trim().replace(/\s+/g, ' ');
 
 		if (!filename) {
 			const mdFiles = listMdFiles();
 			if (mdFiles.length === 0) {
 				return {
 					type: 'message',
-					content:
-						'No .md files in current directory.\nUsage: /ingest <filename.md>',
+					content: 'No .md files in current directory.\nUsage: /ingest <filename.md>',
 				};
 			}
 			return {
@@ -66,8 +56,7 @@ export const ingestCmd: SlashCommand = {
 		if (!isMemoryConnected(ctx)) {
 			return {
 				type: 'message',
-				content:
-					'Memory MCP server is not connected. Run /mcp-connect memory first.',
+				content: 'Memory MCP server is not connected. Run /mcp-connect memory first.',
 			};
 		}
 

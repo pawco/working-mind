@@ -81,9 +81,7 @@ describe('resolveModelSpec', () => {
 	});
 
 	it('unknown provider throws error', () => {
-		expect(() => resolveModelSpec('unknown/some-model')).toThrow(
-			'Unknown provider "unknown"',
-		);
+		expect(() => resolveModelSpec('unknown/some-model')).toThrow('Unknown provider "unknown"');
 	});
 	it('resolves bare ollama model name by model ID lookup', () => {
 		const result = resolveModelSpec('gemma4:e4b');
@@ -224,9 +222,7 @@ describe('detectAvailableProviders', () => {
 		delete process.env.WMIND_API_KEY;
 		const available = detectAvailableProviders();
 		const ids = available.map((p) => p.id);
-		const expectedLocal = PROVIDERS.filter((p) => !p.needsApiKey).map(
-			(p) => p.id,
-		);
+		const expectedLocal = PROVIDERS.filter((p) => !p.needsApiKey).map((p) => p.id);
 		expect(ids).toEqual(expectedLocal);
 	});
 });
@@ -348,9 +344,7 @@ describe('resolveOllamaModelName', () => {
 	];
 
 	it('resolves to exact local model name', () => {
-		expect(resolveOllamaModelName('gemma3:latest', localModels)).toBe(
-			'gemma3:latest',
-		);
+		expect(resolveOllamaModelName('gemma3:latest', localModels)).toBe('gemma3:latest');
 	});
 
 	it('resolves without :latest to local :latest', () => {
@@ -358,27 +352,19 @@ describe('resolveOllamaModelName', () => {
 	});
 
 	it('resolves curated name to largest local family match', () => {
-		expect(resolveOllamaModelName('gemma3:27b', localModels)).toBe(
-			'gemma3:latest',
-		);
+		expect(resolveOllamaModelName('gemma3:27b', localModels)).toBe('gemma3:latest');
 	});
 
 	it('resolves curated qwen3-coder to local variant', () => {
-		expect(resolveOllamaModelName('qwen3-coder', localModels)).toBe(
-			'qwen3-coder:30b',
-		);
+		expect(resolveOllamaModelName('qwen3-coder', localModels)).toBe('qwen3-coder:30b');
 	});
 
 	it('resolves deepseek-r1 to local variant', () => {
-		expect(resolveOllamaModelName('deepseek-r1', localModels)).toBe(
-			'deepseek-r1:8b',
-		);
+		expect(resolveOllamaModelName('deepseek-r1', localModels)).toBe('deepseek-r1:8b');
 	});
 
 	it('returns original if no match at all', () => {
-		expect(resolveOllamaModelName('nonexistent:model', localModels)).toBe(
-			'nonexistent:model',
-		);
+		expect(resolveOllamaModelName('nonexistent:model', localModels)).toBe('nonexistent:model');
 	});
 
 	it('returns original when no local models', () => {

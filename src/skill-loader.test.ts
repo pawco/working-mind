@@ -44,10 +44,7 @@ Deploy the application to the cloud provider.`,
 	it('loads a SKILL.md without frontmatter using directory name', () => {
 		const skillDir = join(TMP, 'review');
 		mkdirSync(skillDir, { recursive: true });
-		writeFileSync(
-			join(skillDir, 'SKILL.md'),
-			'Review code for quality and bugs.',
-		);
+		writeFileSync(join(skillDir, 'SKILL.md'), 'Review code for quality and bugs.');
 
 		const skills = loadSkillFiles([TMP]);
 		expect(skills).toHaveLength(1);
@@ -67,11 +64,7 @@ Deploy the application to the cloud provider.`,
 
 		const skills = loadSkillFiles([TMP]);
 		expect(skills).toHaveLength(3);
-		expect(skills.map((s) => s.name).sort()).toEqual([
-			'debug',
-			'deploy',
-			'test',
-		]);
+		expect(skills.map((s) => s.name).sort()).toEqual(['debug', 'deploy', 'test']);
 	});
 
 	it('handles autoDiscover frontmatter field', () => {

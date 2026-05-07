@@ -35,10 +35,7 @@ export function calculateTurnCost(
 
 export function calculateResponseCost(turns: TurnCost[]): ResponseCost {
 	const totalPromptTokens = turns.reduce((s, t) => s + t.promptTokens, 0);
-	const totalCompletionTokens = turns.reduce(
-		(s, t) => s + t.completionTokens,
-		0,
-	);
+	const totalCompletionTokens = turns.reduce((s, t) => s + t.completionTokens, 0);
 	const totalCost = turns.reduce((s, t) => s + t.totalCost, 0);
 	return { turns, totalPromptTokens, totalCompletionTokens, totalCost };
 }

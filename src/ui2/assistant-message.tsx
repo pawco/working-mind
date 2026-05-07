@@ -4,11 +4,7 @@ import type { HistoryEntry } from '../sdk/command.js';
 import { formatCost } from '../sdk/cost-calc.js';
 import { sanitizeUntrusted } from '../ui/ansi-sanitize.js';
 import { ansiToStyledText } from '../ui/ansi-styled-text.js';
-import {
-	isDiffContent,
-	renderDiff,
-	renderMarkdown,
-} from '../ui/markdown-renderer.js';
+import { isDiffContent, renderDiff, renderMarkdown } from '../ui/markdown-renderer.js';
 import { ACCENT_ASSISTANT, BG_ASSISTANT, MessageCard } from './message-card.js';
 
 export interface AssistantMessageProps {

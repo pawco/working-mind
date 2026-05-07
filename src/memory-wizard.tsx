@@ -1,12 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-	forwardRef,
-	createElement as h,
-	useCallback,
-	useImperativeHandle,
-	useState,
-} from 'react';
+import { forwardRef, createElement as h, useCallback, useImperativeHandle, useState } from 'react';
 import type { UserConfig } from './config.js';
 import type { McpRegistry } from './mcp/registry.js';
 import {
@@ -41,200 +35,187 @@ export interface MemoryWizardProps {
 	writeUserConfigFn: (config: UserConfig) => void;
 }
 
-export const MemoryWizard = forwardRef<MemoryWizardHandle, MemoryWizardProps>(
-	function MemoryWizard(
-		{ mcpRegistry, onDone, getUserConfig, writeUserConfigFn },
-		ref,
-	) {
-		const [step, setStep] = useState<MemoryWizardStep>(() => {
-			const stores = listMemoryStores();
-			return {
-				id: 'store-list',
-				cursor: 0,
-				stores,
-				creating: false,
-				newName: '',
-			};
-		});
+export const MemoryWizard = forwardRef<MemoryWizardHandle, MemoryWizardProps>(function MemoryWizard(
+	{ mcpRegistry, onDone, getUserConfig, writeUserConfigFn },
+	ref,
+) {
+	const [step, setStep] = useState<MemoryWizardStep>(() => {
+		const stores = listMemoryStores();
+		return {
+			id: 'store-list',
+			cursor: 0,
+			stores,
+			creating: false,
+			newName: '',
+		};
+	});
 
-		const doSwitch = useCallback(
-			async (storeName: string) => {
-				setStep({ id: 'switching', storeName });
+	const doSwitch = useCallback(
+		async (storeName: string) => {
+			setStep({ id: 'switching', storeName });
 
-				ensureMemoriesDir();
-				const storePath = getStorePath(storeName);
-				if (!existsSync(storePath)) {
-					const dir = join(storePath, '..');
-					if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-					writeFileSync(storePath, '', 'utf-8');
-				}
+			ensureMemoriesDir();
+			const storePath = getStorePath(storeName);
+			if (!existsSync(storePath)) {
+				const dir = join(storePath, '..');
+				if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+				writeFileSync(storePath, '', 'utf-8');
+			}
 
-				process.env.MEMORY_FILE_PATH = storePath;
+			process.env.MEMORY_FILE_PATH = storePath;
 
-				const cfg = getUserConfig();
-				if (cfg) {
-					cfg.lastMemoryStore = storeName;
-					writeUserConfigFn(cfg);
-				}
+			const cfg = getUserConfig();
+			if (cfg) {
+				cfg.lastMemoryStore = storeName;
+				writeUserConfigFn(cfg);
+			}
 
-				if (!mcpRegistry.hasServer('memory')) {
-					onDone(
-						`Switched to memory store '${storeName}'. Memory MCP server is not connected -- run /mcp-connect memory to reconnect.`,
-					);
-					return;
-				}
-
-				const result = await mcpRegistry.reconnectMemoryStore(
-					storeName,
-					storePath,
+			if (!mcpRegistry.hasServer('memory')) {
+				onDone(
+					`Switched to memory store '${storeName}'. Memory MCP server is not connected -- run /mcp-connect memory to reconnect.`,
 				);
-				if (result.success) {
-					setStep({
-						id: 'switched',
-						storeName,
-						entityCount: result.entityCount,
-					});
-				} else {
-					setStep({ id: 'error', error: result.error || 'Reconnect failed' });
-				}
-			},
-			[mcpRegistry, getUserConfig, writeUserConfigFn, onDone],
-		);
+				return;
+			}
 
-		const handleKey = useCallback(
-			(inputChar: string, key: any) => {
-				const s = step;
+			const result = await mcpRegistry.reconnectMemoryStore(storeName, storePath);
+			if (result.success) {
+				setStep({
+					id: 'switched',
+					storeName,
+					entityCount: result.entityCount,
+				});
+			} else {
+				setStep({ id: 'error', error: result.error || 'Reconnect failed' });
+			}
+		},
+		[mcpRegistry, getUserConfig, writeUserConfigFn, onDone],
+	);
 
-				if (s.id === 'store-list') {
-					if (s.creating) {
-						if (key.escape) {
-							setStep({ ...s, creating: false, newName: '' });
-							return;
-						}
-						if (key.return) {
-							const name = s.newName
-								.trim()
-								.toLowerCase()
-								.replace(/[^a-z0-9_-]/g, '');
-							if (!name || !/^[a-z][a-z0-9_-]{0,49}$/.test(name)) {
-								return;
-							}
-							doSwitch(name);
-							return;
-						}
-						if (key.backspace) {
-							setStep({ ...s, newName: s.newName.slice(0, -1) });
-							return;
-						}
-						if (!key.ctrl && !key.meta && inputChar) {
-							setStep({ ...s, newName: s.newName + inputChar });
-						}
-						return;
-					}
+	const handleKey = useCallback(
+		(inputChar: string, key: any) => {
+			const s = step;
 
-					const stores = s.stores;
-					const totalItems = stores.length + 1;
-
-					if (key.upArrow) {
-						setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
-						return;
-					}
-					if (key.downArrow) {
-						setStep({ ...s, cursor: Math.min(totalItems - 1, s.cursor + 1) });
-						return;
-					}
+			if (s.id === 'store-list') {
+				if (s.creating) {
 					if (key.escape) {
-						onDone('');
+						setStep({ ...s, creating: false, newName: '' });
 						return;
 					}
 					if (key.return) {
-						if (s.cursor === stores.length) {
-							setStep({ ...s, creating: true, newName: '' });
+						const name = s.newName
+							.trim()
+							.toLowerCase()
+							.replace(/[^a-z0-9_-]/g, '');
+						if (!name || !/^[a-z][a-z0-9_-]{0,49}$/.test(name)) {
 							return;
 						}
-						const store = stores[s.cursor];
-						if (store) {
-							doSwitch(store.name);
-						}
+						doSwitch(name);
+						return;
+					}
+					if (key.backspace) {
+						setStep({ ...s, newName: s.newName.slice(0, -1) });
+						return;
+					}
+					if (!key.ctrl && !key.meta && inputChar) {
+						setStep({ ...s, newName: s.newName + inputChar });
 					}
 					return;
 				}
 
-				if (s.id === 'switching') {
-					if (key.escape) {
-						onDone('');
-					}
+				const stores = s.stores;
+				const totalItems = stores.length + 1;
+
+				if (key.upArrow) {
+					setStep({ ...s, cursor: Math.max(0, s.cursor - 1) });
 					return;
 				}
-
-				if (s.id === 'switched') {
-					if (key.return || key.escape) {
-						onDone(
-							`Switched to memory store '${s.storeName}' (${s.entityCount} entities)`,
-						);
-					}
+				if (key.downArrow) {
+					setStep({ ...s, cursor: Math.min(totalItems - 1, s.cursor + 1) });
 					return;
 				}
-
-				if (s.id === 'error') {
-					if (key.return || key.escape) {
-						onDone(`Failed to switch memory store: ${s.error}`);
-					}
+				if (key.escape) {
+					onDone('');
 					return;
 				}
-			},
-			[step, onDone, doSwitch],
-		);
-
-		const handlePaste = useCallback(
-			(text: string) => {
-				const s = step;
-				if (s.id === 'store-list' && s.creating) {
-					setStep({ ...s, newName: s.newName + text });
+				if (key.return) {
+					if (s.cursor === stores.length) {
+						setStep({ ...s, creating: true, newName: '' });
+						return;
+					}
+					const store = stores[s.cursor];
+					if (store) {
+						doSwitch(store.name);
+					}
 				}
-			},
-			[step],
-		);
+				return;
+			}
 
-		useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [
-			handleKey,
-			handlePaste,
-		]);
+			if (s.id === 'switching') {
+				if (key.escape) {
+					onDone('');
+				}
+				return;
+			}
 
-		const activeName = getActiveStoreName(getUserConfig());
+			if (s.id === 'switched') {
+				if (key.return || key.escape) {
+					onDone(`Switched to memory store '${s.storeName}' (${s.entityCount} entities)`);
+				}
+				return;
+			}
 
-		return h(
+			if (s.id === 'error') {
+				if (key.return || key.escape) {
+					onDone(`Failed to switch memory store: ${s.error}`);
+				}
+				return;
+			}
+		},
+		[step, onDone, doSwitch],
+	);
+
+	const handlePaste = useCallback(
+		(text: string) => {
+			const s = step;
+			if (s.id === 'store-list' && s.creating) {
+				setStep({ ...s, newName: s.newName + text });
+			}
+		},
+		[step],
+	);
+
+	useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [handleKey, handlePaste]);
+
+	const activeName = getActiveStoreName(getUserConfig());
+
+	return h(
+		'box',
+		{
+			flexDirection: 'column',
+			flexGrow: 1,
+			backgroundColor: '#0a0a1a',
+			paddingX: 2,
+			paddingY: 1,
+			overflow: 'hidden',
+		},
+		renderStep(step, activeName),
+		h(
 			'box',
-			{
-				flexDirection: 'column',
-				flexGrow: 1,
-				backgroundColor: '#0a0a1a',
-				paddingX: 2,
-				paddingY: 1,
-				overflow: 'hidden',
-			},
-			renderStep(step, activeName),
-			h(
-				'box',
-				{ marginTop: 1 },
-				h('text', {
-					dimColor: true,
-					content:
-						step.id === 'store-list'
-							? step.creating
-								? 'Type name  Enter create  Esc cancel'
-								: 'Up/Down navigate  Enter select  Esc cancel'
-							: 'Enter/Esc continue',
-				}),
-			),
-		);
-	},
-);
+			{ marginTop: 1 },
+			h('text', {
+				dimColor: true,
+				content:
+					step.id === 'store-list'
+						? step.creating
+							? 'Type name  Enter create  Esc cancel'
+							: 'Up/Down navigate  Enter select  Esc cancel'
+						: 'Enter/Esc continue',
+			}),
+		),
+	);
+});
 
-function renderStep(
-	step: MemoryWizardStep,
-	activeName: string,
-): React.ReactNode {
+function renderStep(step: MemoryWizardStep, activeName: string): React.ReactNode {
 	if (step.id === 'store-list') {
 		const stores = step.stores;
 		return h(

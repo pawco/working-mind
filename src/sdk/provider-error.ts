@@ -40,8 +40,7 @@ function _extractOllamaMessage(status: number, body: string): string {
 
 export function classifyProviderError(err: any): ClassifiedError {
 	const msg = err?.message || String(err);
-	const status =
-		err?.status ?? err?.statusCode ?? err?.response?.status ?? null;
+	const status = err?.status ?? err?.statusCode ?? err?.response?.status ?? null;
 	const errName = err?.constructor?.name ?? '';
 	const errCode = err?.code ?? err?.error?.code ?? null;
 	const errType = err?.errorType ?? err?.error?.type ?? err?.type ?? null;
@@ -90,17 +89,12 @@ export function classifyProviderError(err: any): ClassifiedError {
 		};
 	}
 
-	if (
-		status === 403 ||
-		errName === 'PermissionDeniedError' ||
-		errType === 'permission_error'
-	) {
+	if (status === 403 || errName === 'PermissionDeniedError' || errType === 'permission_error') {
 		return {
 			category: 'auth',
 			statusCode: 403,
 			providerMessage: msg,
-			suggestion:
-				'API key lacks permission for this model. Check your plan or run /connect.',
+			suggestion: 'API key lacks permission for this model. Check your plan or run /connect.',
 			canRetry: false,
 		};
 	}
@@ -116,32 +110,22 @@ export function classifyProviderError(err: any): ClassifiedError {
 			category: 'context_length',
 			statusCode: status ?? 400,
 			providerMessage: msg,
-			suggestion:
-				'Context is too long. Use /compact to summarize, or start a fresh session.',
+			suggestion: 'Context is too long. Use /compact to summarize, or start a fresh session.',
 			canRetry: false,
 		};
 	}
 
-	if (
-		status === 529 ||
-		errType === 'overloaded_error' ||
-		msgLower.includes('overloaded')
-	) {
+	if (status === 529 || errType === 'overloaded_error' || msgLower.includes('overloaded')) {
 		return {
 			category: 'overloaded',
 			statusCode: status ?? 529,
 			providerMessage: msg,
-			suggestion:
-				'Provider is temporarily overloaded. Wait a moment and retry.',
+			suggestion: 'Provider is temporarily overloaded. Wait a moment and retry.',
 			canRetry: true,
 		};
 	}
 
-	if (
-		status === 404 ||
-		errName === 'NotFoundError' ||
-		errType === 'not_found_error'
-	) {
+	if (status === 404 || errName === 'NotFoundError' || errType === 'not_found_error') {
 		const isOllama =
 			errName === 'OllamaProviderError' ||
 			msgLower.includes('model') ||
@@ -162,8 +146,7 @@ export function classifyProviderError(err: any): ClassifiedError {
 			category: 'server_error',
 			statusCode: status,
 			providerMessage: msg,
-			suggestion:
-				'Provider server error. Wait and retry, or try a different model.',
+			suggestion: 'Provider server error. Wait and retry, or try a different model.',
 			canRetry: true,
 		};
 	}
@@ -215,8 +198,7 @@ export function classifyProviderError(err: any): ClassifiedError {
 					category: 'not_found',
 					statusCode: 404,
 					providerMessage: oMsg,
-					suggestion:
-						'Model not found. Run: ollama pull <model> to download it.',
+					suggestion: 'Model not found. Run: ollama pull <model> to download it.',
 					canRetry: false,
 				};
 			}
@@ -237,8 +219,7 @@ export function classifyProviderError(err: any): ClassifiedError {
 		category: 'unknown',
 		statusCode: status,
 		providerMessage: msg,
-		suggestion:
-			'An unexpected error occurred. Check the message above for details.',
+		suggestion: 'An unexpected error occurred. Check the message above for details.',
 		canRetry: true,
 	};
 }

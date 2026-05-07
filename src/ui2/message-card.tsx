@@ -18,8 +18,7 @@ export function getAccentColor(role: string, exitCode?: number): string {
 	if (role === 'user') return ACCENT_USER;
 	if (role === 'thinking') return ACCENT_THINKING;
 	if (role === 'tool_call') return ACCENT_TOOL_CALL;
-	if (role === 'tool_result')
-		return exitCode === 0 ? ACCENT_TOOL_OK : ACCENT_TOOL_ERR;
+	if (role === 'tool_result') return exitCode === 0 ? ACCENT_TOOL_OK : ACCENT_TOOL_ERR;
 	if (role === 'assistant') return ACCENT_ASSISTANT;
 	return '#555555';
 }
@@ -51,11 +50,7 @@ export function MessageCard({
 	return h(
 		'box',
 		{ flexDirection: 'row', backgroundColor: backgroundColor || '#0d1117' },
-		h(
-			'box',
-			{ width: 1, backgroundColor: accentColor },
-			h('text', { content: ' ' }),
-		),
+		h('box', { width: 1, backgroundColor: accentColor }, h('text', { content: ' ' })),
 		h(
 			'box',
 			{ flexDirection: 'column', flexGrow: 1, paddingX: 1 },

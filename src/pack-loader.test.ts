@@ -18,11 +18,7 @@ import {
 
 const TMP = join('/tmp', `oe-pack-test-${Date.now()}`);
 
-function writePack(
-	dir: string,
-	manifest: Record<string, any>,
-	files?: Record<string, string>,
-) {
+function writePack(dir: string, manifest: Record<string, any>, files?: Record<string, string>) {
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, 'pack.json'), JSON.stringify(manifest, null, 2));
 	for (const [path, content] of Object.entries(files || {})) {
@@ -185,9 +181,9 @@ describe('readPersonas', () => {
 		const dir = join(TMP, 'bad-persona');
 		writePack(dir, {});
 
-		expect(() =>
-			readPersonas(dir, { test: { prompt: 'nonexistent.md' } }),
-		).toThrow(/does not exist/);
+		expect(() => readPersonas(dir, { test: { prompt: 'nonexistent.md' } })).toThrow(
+			/does not exist/,
+		);
 	});
 });
 
@@ -238,10 +234,7 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(
-			manifest as any,
-			{ mcpServers: {} } as any,
-		);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.search.command).toEqual(['npx', '-y', 'some-mcp-server']);
 		expect(configs.search.type).toBe('local');
 	});
@@ -296,10 +289,7 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(
-			manifest as any,
-			{ mcpServers: {} } as any,
-		);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.search.env?.TEST_PACK_API_KEY).toBe('test-key-123');
 		delete process.env.TEST_PACK_API_KEY;
 	});
@@ -321,10 +311,7 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(
-			manifest as any,
-			{ mcpServers: {} } as any,
-		);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.search.enabled).toBe(false);
 		expect(configs.memory.enabled).toBe(true);
 		expect(configs.search.requiredEnvVars).toBeDefined();
@@ -347,10 +334,7 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(
-			manifest as any,
-			{ mcpServers: {} } as any,
-		);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.search.enabled).toBe(true);
 		expect(configs.search.env?.TEST_REQ_KEY).toBe('present');
 		delete process.env.TEST_REQ_KEY;
@@ -368,18 +352,13 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(
-			manifest as any,
-			{ mcpServers: {} } as any,
-		);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.filesystem.enabled).toBe(false);
 		expect(configs.filesystem.pathPrompt).toBe('Which directory to scan?');
 		expect(configs.filesystem.requiredEnvVars).toBeDefined();
 		expect(configs.filesystem.requiredEnvVars?.length).toBe(1);
 		expect(configs.filesystem.requiredEnvVars?.[0].name).toBe('INPUT_DIR');
-		expect(configs.filesystem.requiredEnvVars?.[0].label).toBe(
-			'Which directory to scan?',
-		);
+		expect(configs.filesystem.requiredEnvVars?.[0].label).toBe('Which directory to scan?');
 		expect(configs.filesystem.requiredEnvVars?.[0].sensitive).toBe(false);
 	});
 
@@ -396,10 +375,7 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(
-			manifest as any,
-			{ mcpServers: {} } as any,
-		);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.filesystem.enabled).toBe(true);
 		expect(configs.filesystem.env?.INPUT_DIR).toBe('/tmp/test-scan');
 		delete process.env.INPUT_DIR;
@@ -416,10 +392,7 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(
-			manifest as any,
-			{ mcpServers: {} } as any,
-		);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.filesystem.requiredEnvVars).toBeUndefined();
 	});
 
@@ -435,10 +408,7 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = await buildMcpConfigs(
-			manifest as any,
-			{ mcpServers: {} } as any,
-		);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.memory.requiredEnvVars).toBeUndefined();
 		expect(configs.memory.enabled).toBe(true);
 	});
@@ -520,8 +490,7 @@ describe('buildMcpConfigs', () => {
 
 describe('replaceAvailableTools', () => {
 	it('replaces {{AVAILABLE_TOOLS}} with tool list', () => {
-		const prompt =
-			'You have these tools:\n{{AVAILABLE_TOOLS}}\nUse them wisely.';
+		const prompt = 'You have these tools:\n{{AVAILABLE_TOOLS}}\nUse them wisely.';
 		const result = replaceAvailableTools(prompt, ['search', 'scrape']);
 		expect(result).toContain('- search');
 		expect(result).toContain('- scrape');
@@ -562,24 +531,18 @@ describe('loadPack', () => {
 		const loaded = await loadPack(dir, {} as any);
 		expect(loaded.manifest.name).toBe('starter');
 		expect(loaded.systemPrompt).toContain('{{AVAILABLE_TOOLS}}');
-		const mcpServerNames = Object.keys(
-			(loaded.manifest as any).mcpServers || {},
-		);
+		const mcpServerNames = Object.keys((loaded.manifest as any).mcpServers || {});
 		expect(mcpServerNames).toContain('memory');
 		expect(mcpServerNames).toContain('brave-search');
 		expect(mcpServerNames).toContain('firecrawl');
-		expect((loaded.manifest as any).mcpServers['brave-search'].required).toBe(
-			false,
-		);
+		expect((loaded.manifest as any).mcpServers['brave-search'].required).toBe(false);
 		expect((loaded.manifest as any).mcpServers.firecrawl.required).toBe(false);
 	});
 });
 
 describe('validateCuration', () => {
 	it('returns without error for manifest without curation', () => {
-		expect(() =>
-			validateCuration({ name: 'test' } as any, '/tmp'),
-		).not.toThrow();
+		expect(() => validateCuration({ name: 'test' } as any, '/tmp')).not.toThrow();
 	});
 
 	it('returns without error for valid curation files', () => {
@@ -822,9 +785,7 @@ Oops.
 			{ 'prompt.md': 'Test' },
 		);
 
-		expect(() => readCommands(dir, readPackManifest(dir))).toThrow(
-			/does not exist/,
-		);
+		expect(() => readCommands(dir, readPackManifest(dir))).toThrow(/does not exist/);
 	});
 
 	it('creates trigger-agent handler when result: trigger-agent', async () => {

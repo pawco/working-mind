@@ -31,10 +31,7 @@ function makeCtx(mcpRegistry: McpRegistry, args: string): CommandContext {
 }
 
 function makeMockRegistry(
-	servers: Record<
-		string,
-		{ info: Partial<McpServerInfo>; config: McpServerConfig }
-	>,
+	servers: Record<string, { info: Partial<McpServerInfo>; config: McpServerConfig }>,
 ): McpRegistry {
 	return {
 		getServerInfo: vi.fn((name: string) => {
@@ -105,9 +102,7 @@ describe('mcp-connect', () => {
 
 	it('suggests /mcp-add for catalog server not yet configured', async () => {
 		const registry = makeMockRegistry({});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'brave-search'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'brave-search'));
 		expect(result.type).toBe('message');
 		if (result.type === 'message') {
 			expect(result.content).toContain('/mcp-add');
@@ -152,9 +147,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'brave-search'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'brave-search'));
 		expect(result.type).toBe('reconnect-server');
 		if (result.type === 'reconnect-server') {
 			expect(result.serverName).toBe('brave-search');
@@ -197,9 +190,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'brave-search'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'brave-search'));
 		expect(result.type).toBe('reconnect-server');
 		if (result.type === 'reconnect-server') {
 			expect(result.serverName).toBe('brave-search');
@@ -223,9 +214,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'brave-search'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'brave-search'));
 		expect(result.type).toBe('message');
 		if (result.type === 'message') {
 			expect(result.content).toContain('Connected');
@@ -291,9 +280,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'brave-search'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'brave-search'));
 		expect(result.type).toBe('reconnect-server');
 		if (result.type === 'reconnect-server') {
 			expect(result.serverName).toBe('brave-search');
@@ -360,9 +347,7 @@ describe('mcp-connect', () => {
 				error: 'MCP error -32000',
 			} as McpServerInfo;
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'brave-search'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'brave-search'));
 		expect(result.type).toBe('message');
 		if (result.type === 'message') {
 			expect(result.content).toContain('Connected');
@@ -382,9 +367,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'brave-search'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'brave-search'));
 		expect(result.type).toBe('reconnect-server');
 		if (result.type === 'reconnect-server') {
 			expect(result.serverName).toBe('brave-search');

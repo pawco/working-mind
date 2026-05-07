@@ -1,10 +1,4 @@
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	rmSync,
-	writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,10 +9,7 @@ const TEST_DIR = join(homedir(), '.wmind');
 const MEMORIES_DIR = join(TEST_DIR, 'memories');
 const DEFAULT_MEMORY = join(TEST_DIR, 'memory.jsonl');
 
-function makeCtx(
-	args: string,
-	overrides?: Partial<CommandContext>,
-): CommandContext {
+function makeCtx(args: string, overrides?: Partial<CommandContext>): CommandContext {
 	return {
 		args,
 		agent: {
@@ -234,8 +225,7 @@ describe('memoryCmd', () => {
 		});
 
 		it('lists named stores', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
 			writeTestMemoryFile(join(MEMORIES_DIR, 'kitchen.jsonl'), [
 				{ name: 'Cabinets', type: 'item', observations: ['IKEA'] },
 			]);
@@ -354,8 +344,7 @@ describe('memoryCmd', () => {
 		});
 
 		it('deletes a named store', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
 			const storePath = join(MEMORIES_DIR, 'kitchen.jsonl');
 			writeTestMemoryFile(storePath, [
 				{ name: 'Cabinets', type: 'item', observations: ['IKEA'] },
@@ -373,8 +362,7 @@ describe('memoryCmd', () => {
 		});
 
 		it('deletes active store and reconnects to default with mcp', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
 			const storePath = join(MEMORIES_DIR, 'kitchen.jsonl');
 			writeTestMemoryFile(storePath, [
 				{ name: 'Cabinets', type: 'item', observations: ['IKEA', 'Sektion'] },
@@ -404,8 +392,7 @@ describe('memoryCmd', () => {
 		});
 
 		it('deletes active store without mcp returns message', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
 			const storePath = join(MEMORIES_DIR, 'bathroom.jsonl');
 			writeTestMemoryFile(storePath, [
 				{ name: 'Tiles', type: 'item', observations: ['ceramic'] },
@@ -431,8 +418,7 @@ describe('memoryCmd', () => {
 		});
 
 		it('handles delete with empty store', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
 			const storePath = join(MEMORIES_DIR, 'empty-store.jsonl');
 			writeFileSync(storePath, '', 'utf-8');
 
@@ -464,9 +450,7 @@ describe('memoryCmd', () => {
 		});
 
 		it('shows error when old store does not exist', async () => {
-			const result = await memoryCmd.handler(
-				makeCtx('rename nonexistent newname'),
-			);
+			const result = await memoryCmd.handler(makeCtx('rename nonexistent newname'));
 			expect(result.type).toBe('message');
 			if (result.type === 'message') {
 				expect(result.content).toContain('does not exist');
@@ -474,14 +458,9 @@ describe('memoryCmd', () => {
 		});
 
 		it('shows error when new name already exists', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
-			writeTestMemoryFile(join(MEMORIES_DIR, 'old.jsonl'), [
-				{ name: 'A', type: 'x' },
-			]);
-			writeTestMemoryFile(join(MEMORIES_DIR, 'taken.jsonl'), [
-				{ name: 'B', type: 'y' },
-			]);
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
+			writeTestMemoryFile(join(MEMORIES_DIR, 'old.jsonl'), [{ name: 'A', type: 'x' }]);
+			writeTestMemoryFile(join(MEMORIES_DIR, 'taken.jsonl'), [{ name: 'B', type: 'y' }]);
 
 			const result = await memoryCmd.handler(makeCtx('rename old taken'));
 			expect(result.type).toBe('message');
@@ -491,11 +470,8 @@ describe('memoryCmd', () => {
 		});
 
 		it('renames a store', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
-			writeTestMemoryFile(join(MEMORIES_DIR, 'old.jsonl'), [
-				{ name: 'A', type: 'x' },
-			]);
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
+			writeTestMemoryFile(join(MEMORIES_DIR, 'old.jsonl'), [{ name: 'A', type: 'x' }]);
 
 			const result = await memoryCmd.handler(makeCtx('rename old new-name'));
 			expect(result.type).toBe('message');
@@ -507,11 +483,8 @@ describe('memoryCmd', () => {
 		});
 
 		it('renames the active store and reconnects with mcp', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
-			writeTestMemoryFile(join(MEMORIES_DIR, 'kitchen.jsonl'), [
-				{ name: 'A', type: 'x' },
-			]);
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
+			writeTestMemoryFile(join(MEMORIES_DIR, 'kitchen.jsonl'), [{ name: 'A', type: 'x' }]);
 
 			const ctx = makeCtx('rename kitchen home-renovation', {
 				mcpRegistry: makeMockMcpRegistry(),
@@ -532,11 +505,8 @@ describe('memoryCmd', () => {
 		});
 
 		it('renames the active store without mcp returns message', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
-			writeTestMemoryFile(join(MEMORIES_DIR, 'garage.jsonl'), [
-				{ name: 'A', type: 'x' },
-			]);
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
+			writeTestMemoryFile(join(MEMORIES_DIR, 'garage.jsonl'), [{ name: 'A', type: 'x' }]);
 
 			const ctx = makeCtx('rename garage workshop', {
 				config: {
@@ -567,9 +537,7 @@ describe('memoryCmd', () => {
 		});
 
 		it('shows error when source does not exist', async () => {
-			const result = await memoryCmd.handler(
-				makeCtx('copy nonexistent default'),
-			);
+			const result = await memoryCmd.handler(makeCtx('copy nonexistent default'));
 			expect(result.type).toBe('message');
 			if (result.type === 'message') {
 				expect(result.content).toContain('does not exist');
@@ -577,8 +545,7 @@ describe('memoryCmd', () => {
 		});
 
 		it('copies to a new store', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
 			writeTestMemoryFile(join(MEMORIES_DIR, 'source.jsonl'), [
 				{ name: 'A', type: 'x', observations: ['obs1'] },
 			]);
@@ -590,23 +557,17 @@ describe('memoryCmd', () => {
 				expect(result.content).toContain("'source' to 'dest'");
 			}
 			expect(existsSync(join(MEMORIES_DIR, 'dest.jsonl'))).toBe(true);
-			const destContent = readFileSync(
-				join(MEMORIES_DIR, 'dest.jsonl'),
-				'utf-8',
-			);
+			const destContent = readFileSync(join(MEMORIES_DIR, 'dest.jsonl'), 'utf-8');
 			expect(destContent).toContain('"A"');
 		});
 
 		it('merges into existing store skipping duplicates', async () => {
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
 			writeTestMemoryFile(join(MEMORIES_DIR, 'from.jsonl'), [
 				{ name: 'A', type: 'x' },
 				{ name: 'B', type: 'y' },
 			]);
-			writeTestMemoryFile(join(MEMORIES_DIR, 'to.jsonl'), [
-				{ name: 'A', type: 'x' },
-			]);
+			writeTestMemoryFile(join(MEMORIES_DIR, 'to.jsonl'), [{ name: 'A', type: 'x' }]);
 
 			const result = await memoryCmd.handler(makeCtx('copy from to'));
 			expect(result.type).toBe('message');
@@ -639,8 +600,7 @@ describe('memoryCmd', () => {
 			writeTestMemoryFile(DEFAULT_MEMORY, [
 				{ name: 'Svelte', type: 'technology', observations: ['compiler'] },
 			]);
-			if (!existsSync(MEMORIES_DIR))
-				mkdirSync(MEMORIES_DIR, { recursive: true });
+			if (!existsSync(MEMORIES_DIR)) mkdirSync(MEMORIES_DIR, { recursive: true });
 			writeTestMemoryFile(join(MEMORIES_DIR, 'work.jsonl'), [
 				{
 					name: 'Kubernetes',
@@ -686,9 +646,7 @@ describe('memoryCmd', () => {
 		it('export writes to file with --file flag', async () => {
 			writeTestMemoryFile(DEFAULT_MEMORY, [{ name: 'Test', type: 'concept' }]);
 			const _exportDir = join(homedir(), '.wmind', 'exports');
-			const result = await memoryCmd.handler(
-				makeCtx('export mermaid --file test-graph.mmd'),
-			);
+			const result = await memoryCmd.handler(makeCtx('export mermaid --file test-graph.mmd'));
 			expect(result.type).toBe('message');
 			if (result.type === 'message') {
 				expect(result.content).toContain('Exported mermaid');

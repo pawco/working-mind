@@ -1,9 +1,6 @@
 import { createElement as h } from 'react';
 import type { HistoryEntry } from '../sdk/command.js';
-import {
-	ERROR_CATEGORY_LABELS,
-	type ProviderErrorCategory,
-} from '../sdk/provider-error.js';
+import { ERROR_CATEGORY_LABELS, type ProviderErrorCategory } from '../sdk/provider-error.js';
 import { sanitizeUntrusted } from '../ui/ansi-sanitize.js';
 import { ACCENT_TOOL_ERR, BG_TOOL_ERR, MessageCard } from './message-card.js';
 
@@ -66,11 +63,8 @@ export function ErrorBlock({ entry, expanded, collapsed }: ErrorBlockProps) {
 		h(
 			'box',
 			{ paddingLeft: 1, flexDirection: 'column' },
-			...previewLines.map((line, i) =>
-				h('text', { key: i, content: line, fg: 'red' }),
-			),
-			remaining > 0 &&
-				h('text', { content: `+${remaining} lines [Ctrl+E]`, fg: '#555e70' }),
+			...previewLines.map((line, i) => h('text', { key: i, content: line, fg: 'red' })),
+			remaining > 0 && h('text', { content: `+${remaining} lines [Ctrl+E]`, fg: '#555e70' }),
 			suggestion && h('text', { content: `>> ${suggestion}`, fg: 'yellow' }),
 		),
 	);

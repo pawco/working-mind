@@ -42,26 +42,15 @@ const program = new Command()
 	.name('wmind')
 	.description('Terminal AI agent with persistent knowledge graph (v0.0.1 dev)')
 	.version(VERSION)
-	.argument(
-		'[prompt]',
-		'Initial prompt (starts non-interactive mode if provided)',
-	)
+	.argument('[prompt]', 'Initial prompt (starts non-interactive mode if provided)')
 	.option(
 		'-m, --model <spec>',
 		'AI model (provider/model, alias, or tier)',
 		process.env.WMIND_MODEL || '',
 	)
-	.option(
-		'-p, --prompt <spec>',
-		'System prompt: named, file path, or inline text',
-	)
+	.option('-p, --prompt <spec>', 'System prompt: named, file path, or inline text')
 	.option('--pack <name>', 'Tool pack to load (repeatable)', collect, [])
-	.option(
-		'--add-agent <persona>',
-		'Additional agent tab (repeatable)',
-		collect,
-		[],
-	)
+	.option('--add-agent <persona>', 'Additional agent tab (repeatable)', collect, [])
 	.option('--api-key <key>', 'API key (or auto-detect from env vars)')
 	.option('--base-url <url>', 'Custom API base URL')
 	.option('--non-interactive', 'No TUI -- for CI/scripts')
@@ -70,16 +59,10 @@ const program = new Command()
 	.option('--no-thinking', 'Hide reasoning/thinking blocks')
 	.option('--configure', 'Run first-run / re-configuration wizard')
 	.option('--list-providers', 'Show all curated providers + detected API keys')
-	.option(
-		'--list-models [provider]',
-		'Show models for a provider (or all with keys)',
-	)
+	.option('--list-models [provider]', 'Show models for a provider (or all with keys)')
 	.option('--list-prompts', 'Show saved system prompts')
 	.option('--list-packs', 'Show installed tool packs')
-	.option(
-		'--save-prompt <name>',
-		'Save current system prompt to config library',
-	)
+	.option('--save-prompt <name>', 'Save current system prompt to config library')
 	.action(async (prompt, opts) => {
 		if (opts.listProviders) {
 			await listProviders();
@@ -87,9 +70,7 @@ const program = new Command()
 		}
 
 		if (opts.listModels !== undefined) {
-			await listModels(
-				typeof opts.listModels === 'string' ? opts.listModels : undefined,
-			);
+			await listModels(typeof opts.listModels === 'string' ? opts.listModels : undefined);
 			return;
 		}
 
@@ -102,9 +83,7 @@ const program = new Command()
 			const packs = listInstalledPacks();
 			if (packs.length === 0) {
 				console.log(
-					pc.dim(
-						'No packs installed. Use "wmind pack install <url>" to add one.',
-					),
+					pc.dim('No packs installed. Use "wmind pack install <url>" to add one.'),
 				);
 			} else {
 				console.log(pc.bold('\nInstalled Packs:\n'));
@@ -135,8 +114,7 @@ const program = new Command()
 
 		if (opts.savePrompt) {
 			const name = opts.savePrompt;
-			const promptText =
-				opts.prompt || 'You are Working Mind, a reasoning agent.';
+			const promptText = opts.prompt || 'You are Working Mind, a reasoning agent.';
 			saveSystemPrompt(name, promptText, userConfig);
 			writeUserConfig(userConfig);
 			console.log(pc.green(`Saved system prompt "${name}"`));
@@ -217,12 +195,10 @@ const program = new Command()
 			if (resolvedName !== ollamaModel) {
 				console.error(pc.dim(`  Resolved: ${ollamaModel} -> ${resolvedName}`));
 			}
-			modelId = resolvedName;
+			modelId = `ollama/${resolvedName}`;
 
 			if (!isOllamaModelAvailable(resolvedName, ollama.models)) {
-				console.error(
-					pc.yellow(`Warning: Model "${resolvedName}" not found locally.`),
-				);
+				console.error(pc.yellow(`Warning: Model "${resolvedName}" not found locally.`));
 				console.error(
 					pc.dim(
 						`  Available models: ${ollama.models
@@ -238,9 +214,7 @@ const program = new Command()
 
 		const baseUrl =
 			opts.baseUrl ||
-			(resolved.provider.id === 'local-fast' && localFast.running
-				? localFast.baseUrl
-				: '') ||
+			(resolved.provider.id === 'local-fast' && localFast.running ? localFast.baseUrl : '') ||
 			resolved.baseUrl;
 
 		const config: AgentConfig = {
@@ -258,16 +232,14 @@ const program = new Command()
 		};
 
 		const providerLabel = resolved.provider.displayName;
-		const modelLabel = resolved.model?.displayName || config.model;
+		const displayModel = resolved.model?.displayName || resolved.providerRelativeModelId;
 		const priceLabel =
 			resolved.model && resolved.model.inputPricePer1M > 0
 				? ` ($${resolved.model.inputPricePer1M}/$${resolved.model.outputPricePer1M})`
 				: resolved.model?.inputPricePer1M === 0
 					? ' (free)'
 					: '';
-		console.error(
-			pc.dim(`  Model: ${providerLabel} / ${modelLabel}${priceLabel}`),
-		);
+		console.error(pc.dim(`  Model: ${providerLabel} / ${displayModel}${priceLabel}`));
 
 		const packNames =
 			opts.pack.length > 0 && opts.pack[0] !== 'none'
@@ -300,8 +272,7 @@ const program = new Command()
 
 		const skillCount = skillRegistry.getAll().length;
 		const cmdCount = commandRegistry.getAll().length;
-		if (skillCount > 0)
-			console.error(pc.dim(`  Skills: ${skillCount} available`));
+		if (skillCount > 0) console.error(pc.dim(`  Skills: ${skillCount} available`));
 		if (cmdCount > 0 && cmdCount > 14)
 			console.error(pc.dim(`  Commands: ${cmdCount} registered`));
 
@@ -311,9 +282,7 @@ const program = new Command()
 		const enabledCount = mcpServers.filter((s) => s.enabled).length;
 		const skippedCount = mcpServers.filter((s) => !s.enabled).length;
 		if (enabledCount > 0) {
-			console.error(
-				pc.dim(`  MCP: ${enabledCount} server(s) connecting in background...`),
-			);
+			console.error(pc.dim(`  MCP: ${enabledCount} server(s) connecting in background...`));
 		}
 		if (skippedCount > 0) {
 			const skipped = mcpServers.filter((s) => !s.enabled).map((s) => s.name);
@@ -340,16 +309,13 @@ const program = new Command()
 					persona: firstPersona,
 					model: config.model,
 					packName: pack.name,
-					systemPromptOverride:
-						loaded?.systemPrompt || packResult.systemPromptOverride,
+					systemPromptOverride: loaded?.systemPrompt || packResult.systemPromptOverride,
 				});
 			}
 		} else {
 			const defaultName =
-				opts.prompt ||
-				(packResult.packs.length > 0 ? packResult.packs[0].name : 'Agent');
-			const defaultPack =
-				packResult.packs.length > 0 ? packResult.packs[0] : null;
+				opts.prompt || (packResult.packs.length > 0 ? packResult.packs[0].name : 'Agent');
+			const defaultPack = packResult.packs.length > 0 ? packResult.packs[0] : null;
 			const defaultLoaded = packResult.loadedPacks[0];
 			const firstPersona = defaultPack
 				? Object.keys(defaultPack.personas || {})[0]
@@ -359,8 +325,7 @@ const program = new Command()
 				persona: opts.prompt || firstPersona,
 				model: config.model,
 				packName: defaultPack?.name,
-				systemPromptOverride:
-					config.systemPrompt || defaultLoaded?.systemPrompt,
+				systemPromptOverride: config.systemPrompt || defaultLoaded?.systemPrompt,
 			});
 		}
 
@@ -398,23 +363,13 @@ const program = new Command()
 			await runNonInteractive(prompt, config, registry, mcpRegistry);
 		} else {
 			try {
-				await startAgentTUI(
-					config,
-					registry,
-					commandRegistry,
-					skillRegistry,
-					mcpRegistry,
-				);
+				await startAgentTUI(config, registry, commandRegistry, skillRegistry, mcpRegistry);
 			} catch (err: any) {
 				if (err.code === 'TUI_REQUIRES_BUN') {
-					console.error(
-						pc.yellow('\nInteractive TUI requires a platform binary.'),
-					);
+					console.error(pc.yellow('\nInteractive TUI requires a platform binary.'));
 					console.error(pc.dim('  Reinstall:  npm install -g wmind'));
 					console.error(pc.dim('  Or with Bun:  bun $(which wmind)'));
-					console.error(
-						pc.dim('\n  Non-interactive mode:  wmind "your question"'),
-					);
+					console.error(pc.dim('\n  Non-interactive mode:  wmind "your question"'));
 					process.exit(1);
 				}
 				throw err;

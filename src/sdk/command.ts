@@ -6,13 +6,7 @@ import type { ProviderErrorCategory } from './provider-error.js';
 
 export interface HistoryEntry {
 	id: number;
-	role:
-		| 'user'
-		| 'assistant'
-		| 'tool_call'
-		| 'tool_result'
-		| 'thinking'
-		| 'error';
+	role: 'user' | 'assistant' | 'tool_call' | 'tool_result' | 'thinking' | 'error';
 	content: string;
 	name?: string;
 	exitCode?: number;

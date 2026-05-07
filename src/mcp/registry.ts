@@ -16,9 +16,7 @@ export function stripSensitiveEnvVars(
 	const result: Record<string, McpServerConfig> = {};
 	for (const [name, config] of Object.entries(configs)) {
 		const sensitive = new Set(
-			(config.requiredEnvVars || [])
-				.filter((v) => v.sensitive)
-				.map((v) => v.name),
+			(config.requiredEnvVars || []).filter((v) => v.sensitive).map((v) => v.name),
 		);
 		if (sensitive.size === 0 || !config.env) {
 			result[name] = config;
@@ -69,25 +67,14 @@ export function enrichMcpError(rawMsg: string, command?: string[]): string {
 	}
 
 	if (rawMsg.includes('Python 3') || rawMsg.includes('python')) {
-		hints.push(
-			'This server requires Python. Install Python 3.11+ or remove the server.',
-		);
+		hints.push('This server requires Python. Install Python 3.11+ or remove the server.');
 	}
 
-	if (
-		rawMsg.includes('E404') ||
-		rawMsg.includes('Not Found') ||
-		rawMsg.includes('not found')
-	) {
-		hints.push(
-			'The npm package was not found. Check the package name in your config.',
-		);
+	if (rawMsg.includes('E404') || rawMsg.includes('Not Found') || rawMsg.includes('not found')) {
+		hints.push('The npm package was not found. Check the package name in your config.');
 	}
 
-	if (
-		rawMsg.includes('allowed directory') ||
-		rawMsg.includes('Allowed directories')
-	) {
+	if (rawMsg.includes('allowed directory') || rawMsg.includes('Allowed directories')) {
 		hints.push(
 			'The filesystem server needs valid directory paths. Check $INPUT_DIR or $CWD in the command.',
 		);
@@ -99,9 +86,7 @@ export function enrichMcpError(rawMsg: string, command?: string[]): string {
 		);
 	}
 
-	const shortMsg = rawMsg.includes('-32000')
-		? 'MCP error -32000'
-		: 'Connection closed';
+	const shortMsg = rawMsg.includes('-32000') ? 'MCP error -32000' : 'Connection closed';
 	return `${shortMsg} -- ${hints.join(' ')}`;
 }
 
@@ -124,8 +109,7 @@ export function substituteCommandVars(
 		if (arg.includes('$PACK_DIR') && config.packDir)
 			return arg.replace(/\$PACK_DIR/g, config.packDir);
 		if (arg.includes('$INPUT_DIR')) {
-			if (config.env?.INPUT_DIR)
-				return arg.replace(/\$INPUT_DIR/g, config.env.INPUT_DIR);
+			if (config.env?.INPUT_DIR) return arg.replace(/\$INPUT_DIR/g, config.env.INPUT_DIR);
 			unresolved.push('$INPUT_DIR');
 			return arg;
 		}
@@ -220,10 +204,7 @@ export class McpRegistry {
 
 	private readonly CONNECTION_TIMEOUT_MS = 15_000;
 
-	async addServer(
-		name: string,
-		config: McpServerConfig,
-	): Promise<McpServerInfo> {
+	async addServer(name: string, config: McpServerConfig): Promise<McpServerInfo> {
 		this.connections.set(name, {
 			name,
 			config,
@@ -255,9 +236,7 @@ export class McpRegistry {
 		const targets = names ?? [...this.connections.keys()];
 		const eligible = targets.filter((n) => {
 			const conn = this.connections.get(n);
-			return (
-				conn && conn.config.enabled !== false && conn.status === 'disconnected'
-			);
+			return conn && conn.config.enabled !== false && conn.status === 'disconnected';
 		});
 		const skipped = targets.filter((n) => {
 			const conn = this.connections.get(n);
@@ -273,10 +252,7 @@ export class McpRegistry {
 		for (let i = 0; i < results.length; i++) {
 			const r = results[i];
 			const name = eligible[i];
-			if (
-				r.status === 'fulfilled' &&
-				this.getServerInfo(name)?.status === 'connected'
-			) {
+			if (r.status === 'fulfilled' && this.getServerInfo(name)?.status === 'connected') {
 				connected.push(name);
 			} else {
 				failed.push(name);
@@ -313,10 +289,7 @@ export class McpRegistry {
 		const resolvedConfig = { ...conn.config };
 		try {
 			if (resolvedConfig.command) {
-				const subbed = substituteCommandVars(
-					resolvedConfig.command,
-					resolvedConfig,
-				);
+				const subbed = substituteCommandVars(resolvedConfig.command, resolvedConfig);
 				resolvedConfig.command = subbed.args;
 				if (subbed.unresolvedVars.length > 0) {
 					conn.status = 'error';
@@ -347,9 +320,7 @@ export class McpRegistry {
 				return;
 			}
 
-			conn.tools = mcpTools.map((t) =>
-				mcpToolToToolDef(name, t, transport.client),
-			);
+			conn.tools = mcpTools.map((t) => mcpToolToToolDef(name, t, transport.client));
 			conn.transport = transport;
 			conn.status = 'connected';
 
@@ -369,10 +340,7 @@ export class McpRegistry {
 				conn.tools = [];
 			} else {
 				conn.status = 'error';
-				conn.error = enrichMcpError(
-					err.message || String(err),
-					resolvedConfig.command,
-				);
+				conn.error = enrichMcpError(err.message || String(err), resolvedConfig.command);
 				conn.tools = [];
 			}
 		}
@@ -504,15 +472,12 @@ export class McpRegistry {
 			await this.connect('memory');
 			const info = this.getServerInfo('memory');
 			if (info?.status === 'connected') {
-				const readGraph = conn.tools.find(
-					(t) => t.name === 'mcp__memory__read_graph',
-				);
+				const readGraph = conn.tools.find((t) => t.name === 'mcp__memory__read_graph');
 				let entityCount = 0;
 				if (readGraph) {
 					try {
 						const result = await readGraph.execute({});
-						const graph =
-							typeof result === 'string' ? JSON.parse(result) : result;
+						const graph = typeof result === 'string' ? JSON.parse(result) : result;
 						entityCount = graph?.entities?.length ?? 0;
 					} catch {
 						// empty store, that's fine
@@ -545,9 +510,7 @@ export class McpRegistry {
 				if (toolRef.endsWith('*')) continue;
 				const result = validateToolReference(toolRef, connectedTools);
 				if (!result.valid) {
-					const hint = result.suggestion
-						? ` (did you mean ${result.suggestion}?)`
-						: '';
+					const hint = result.suggestion ? ` (did you mean ${result.suggestion}?)` : '';
 					warnings.push(`${source}: unknown tool "${toolRef}"${hint}`);
 				}
 			}

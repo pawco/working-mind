@@ -26,15 +26,9 @@ import {
 import { getExportsDir, getStorePath } from '../paths.js';
 import type { MemoryGraph } from '../schemas.js';
 import { parseMemoryGraph } from '../schemas.js';
-import type {
-	CommandContext,
-	CommandResult,
-	SlashCommand,
-} from '../sdk/command.js';
+import type { CommandContext, CommandResult, SlashCommand } from '../sdk/command.js';
 
-async function getMemoryGraph(
-	ctx: CommandContext,
-): Promise<MemoryGraph | null> {
+async function getMemoryGraph(ctx: CommandContext): Promise<MemoryGraph | null> {
 	const mcpRegistry = ctx.mcpRegistry;
 	if (mcpRegistry) {
 		const tools = mcpRegistry.getTools();
@@ -106,8 +100,7 @@ function parseArgs(raw: string): {
 	for (let i = 0; i < parts.length; i++) {
 		if (parts[i].startsWith('--')) {
 			const key = parts[i].slice(2);
-			const value =
-				parts[i + 1] && !parts[i + 1].startsWith('--') ? parts[i + 1] : 'true';
+			const value = parts[i + 1] && !parts[i + 1].startsWith('--') ? parts[i + 1] : 'true';
 			flags[key] = value;
 			if (value !== 'true') i++;
 		} else {
@@ -123,10 +116,7 @@ function ensureExportsDir(): string {
 	return dir;
 }
 
-async function handleExport(
-	ctx: CommandContext,
-	rawArgs: string,
-): Promise<CommandResult> {
+async function handleExport(ctx: CommandContext, rawArgs: string): Promise<CommandResult> {
 	const { flags, rest } = parseArgs(rawArgs);
 	const format = rest[0] === 'dot' ? 'dot' : 'mermaid';
 	const filePath = flags.file || rest[1];
@@ -136,11 +126,7 @@ async function handleExport(
 		return { type: 'message', content: emptyGraphMessage(ctx) };
 	}
 
-	const filtered = filterGraph(
-		graph,
-		flags.filter,
-		Number(flags.depth) || undefined,
-	);
+	const filtered = filterGraph(graph, flags.filter, Number(flags.depth) || undefined);
 	const content = format === 'dot' ? toDot(filtered) : toMermaid(filtered);
 
 	if (filePath) {
@@ -173,14 +159,10 @@ async function handleExport(
 	};
 }
 
-async function handleGraph(
-	ctx: CommandContext,
-	rawArgs: string,
-): Promise<CommandResult> {
+async function handleGraph(ctx: CommandContext, rawArgs: string): Promise<CommandResult> {
 	const { flags, rest } = parseArgs(rawArgs);
 	const mode = rest[0] === 'tree' ? 'tree' : 'ascii';
-	const filterQuery =
-		flags.filter || (rest[0] && rest[0] !== 'tree' ? rest[0] : undefined);
+	const filterQuery = flags.filter || (rest[0] && rest[0] !== 'tree' ? rest[0] : undefined);
 	const depth = Number(flags.depth) || (filterQuery ? 2 : undefined);
 
 	const graph = await getMemoryGraph(ctx);
@@ -196,8 +178,7 @@ async function handleGraph(
 		};
 	}
 
-	const content =
-		mode === 'tree' ? toTreeView(filtered) : toAsciiGraph(filtered);
+	const content = mode === 'tree' ? toTreeView(filtered) : toAsciiGraph(filtered);
 
 	return {
 		type: 'message',
@@ -211,8 +192,7 @@ function handleSave(ctx: CommandContext, topic: string): CommandResult {
 	if (!connected) {
 		return {
 			type: 'message',
-			content:
-				'Memory MCP server is not connected. Run /mcp-connect memory first.',
+			content: 'Memory MCP server is not connected. Run /mcp-connect memory first.',
 		};
 	}
 
@@ -413,17 +393,13 @@ function handleCopy(_ctx: CommandContext, args: string): CommandResult {
 
 		const fromContent = readFileSync(fromPath, 'utf-8');
 		const fromGraph = parseMemoryJsonl(fromContent);
-		const newEntities = fromGraph.entities.filter(
-			(e) => !existingNames.has(e.name),
-		);
+		const newEntities = fromGraph.entities.filter((e) => !existingNames.has(e.name));
 		const newRelations = fromGraph.relations.filter(
 			(r) =>
 				!existingNames.has(r.from) &&
 				!toGraph.relations.some(
 					(tr) =>
-						tr.from === r.from &&
-						tr.to === r.to &&
-						tr.relationType === r.relationType,
+						tr.from === r.from && tr.to === r.to && tr.relationType === r.relationType,
 				),
 		);
 
@@ -437,11 +413,7 @@ function handleCopy(_ctx: CommandContext, args: string): CommandResult {
 
 		if (appendLines.length > 0) {
 			const existing = toContent.trimEnd();
-			writeFileSync(
-				toPath,
-				`${existing}\n${appendLines.join('\n')}\n`,
-				'utf-8',
-			);
+			writeFileSync(toPath, `${existing}\n${appendLines.join('\n')}\n`, 'utf-8');
 		}
 
 		const alreadyExisted = fromGraph.entities.length - newEntities.length;
@@ -505,16 +477,14 @@ const HELP_TEXT = [
 
 function stripPrefix(args: string, prefix: string): string {
 	if (args === prefix) return '';
-	if (args.startsWith(`${prefix} `))
-		return args.slice(prefix.length + 1).trim();
+	if (args.startsWith(`${prefix} `)) return args.slice(prefix.length + 1).trim();
 	return args;
 }
 
 export const memoryCmd: SlashCommand = {
 	name: 'memory',
 	description: 'View, save, visualize, and export the knowledge graph',
-	usage:
-		'[stats | save | export | graph | list | use | copy | rename | delete | search-all] [options]',
+	usage: '[stats | save | export | graph | list | use | copy | rename | delete | search-all] [options]',
 	handler: async (ctx: CommandContext): Promise<CommandResult> => {
 		const args = ctx.args.trim();
 

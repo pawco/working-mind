@@ -20,8 +20,7 @@ const mcpEnvDefSchema = z.object({
 	required: z
 		.boolean()
 		.refine((v) => v !== true, {
-			error:
-				'All MCP env settings must be optional (required: false or omitted)',
+			error: 'All MCP env settings must be optional (required: false or omitted)',
 		})
 		.optional(),
 	label: z.string().optional(),
@@ -63,8 +62,7 @@ const curationDefSchema = z.object({
 export const packManifestSchema = z
 	.object({
 		name: z.string().regex(packNameRegex, {
-			error:
-				'Pack name must be lowercase, start with a letter, 3-30 chars, hyphens allowed',
+			error: 'Pack name must be lowercase, start with a letter, 3-30 chars, hyphens allowed',
 		}),
 		version: z.string().regex(semverRegex, {
 			error: 'Version must be semver (e.g. 1.0.0)',
@@ -230,9 +228,7 @@ const mcpProjectConfigSchema = z
 	})
 	.passthrough();
 
-export function parseMcpProjectConfig(
-	raw: unknown,
-): Record<string, McpServerConfig> {
+export function parseMcpProjectConfig(raw: unknown): Record<string, McpServerConfig> {
 	const result = mcpProjectConfigSchema.safeParse(raw);
 	if (!result.success) return {};
 	return result.data.mcpServers;
@@ -285,9 +281,7 @@ export {
 };
 
 export function formatZodError(context: string, error: z.ZodError): string {
-	const issues = error.issues
-		.map((i) => `  ${i.path.join('.')}: ${i.message}`)
-		.join('\n');
+	const issues = error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n');
 	return `${context}:\n${issues}`;
 }
 
