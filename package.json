@@ -51,12 +51,14 @@
   "optionalDependencies": {
     "wmind-darwin-arm64": "0.0.1",
     "wmind-darwin-x64": "0.0.1",
-    "wmind-linux-x64": "0.0.1",
     "wmind-linux-arm64": "0.0.1",
+    "wmind-linux-x64": "0.0.1",
     "wmind-windows-x64": "0.0.1"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@opentui/core": "^0.2.3",
+    "@opentui/react": "^0.2.3",
     "commander": "^14.0.3",
     "execa": "^9.5.0",
     "highlight.js": "^11.11.1",
@@ -65,11 +67,10 @@
     "picocolors": "^1.0.0",
     "react": "^19.2.6",
     "strip-json-comments": "^5.0.3",
-    "zod": "^4.4.3",
-    "@opentui/core": "^0.2.3",
-    "@opentui/react": "^0.2.3"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/node": "^25.6.1",
     "@types/react": "^19.2.14",
     "esbuild": "^0.28.0",
     "tsx": "^4.19.0",
