@@ -1,23 +1,24 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
-import { getDefaultMemoryPath, getMemoriesDir } from '../paths.js';
+import {
+	getConfigDir,
+	getDefaultMemoryPath,
+	getMemoriesDir,
+} from '../paths.js';
+import type {
+	MemoryEntity,
+	MemoryGraph,
+	MemoryRelation,
+} from '../schemas.js';
+import { generateIndexMarkdown } from './auto-link.js';
 
-export interface MemoryEntity {
-	name: string;
-	entityType: string;
-	observations: string[];
-}
-
-export interface MemoryRelation {
-	from: string;
-	to: string;
-	relationType: string;
-}
-
-export interface MemoryGraph {
-	entities: MemoryEntity[];
-	relations: MemoryRelation[];
-}
+export type { MemoryEntity, MemoryGraph, MemoryRelation };
 
 export interface MemoryStoreInfo {
 	name: string;
@@ -380,4 +381,34 @@ export function formatStoreList(
 	}
 	lines.push(`\nActive: ${activeName}`);
 	return lines.join('\n');
+}
+
+export function getKnowledgeIndexPath(storeName?: string): string {
+	const base =
+		storeName && storeName !== 'default'
+			? join(getMemoriesDir(), `${storeName}-index.md`)
+			: join(getConfigDir(), 'knowledge-index.md');
+	return base;
+}
+
+export function writeKnowledgeIndex(
+	graph: MemoryGraph,
+	storeName?: string,
+): void {
+	const indexDir =
+		storeName && storeName !== 'default' ? getMemoriesDir() : getConfigDir();
+	if (!existsSync(indexDir)) mkdirSync(indexDir, { recursive: true });
+	const indexPath = getKnowledgeIndexPath(storeName);
+	const content = generateIndexMarkdown(graph);
+	writeFileSync(indexPath, content, 'utf-8');
+}
+
+export function readKnowledgeIndex(storeName?: string): string | null {
+	const indexPath = getKnowledgeIndexPath(storeName);
+	if (!existsSync(indexPath)) return null;
+	try {
+		return readFileSync(indexPath, 'utf-8');
+	} catch {
+		return null;
+	}
 }

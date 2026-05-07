@@ -1,6 +1,9 @@
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import type { UserConfig } from '../config.js';
+import { getConfigDir } from '../paths.js';
 import type { ModelEntry, ProviderEntry } from './provider-registry.js';
 import { resolveApiKey } from './provider-resolve.js';
-import type { UserConfig } from '../config.js';
 
 export interface DiscoveredModel {
 	id: string;
@@ -25,12 +28,25 @@ interface OpenAiModelsResponse {
 	}>;
 }
 
+interface OllamaTagsResponse {
+	models: Array<{
+		name: string;
+		modified_at?: string;
+		size?: number;
+	}>;
+}
+
 interface CacheEntry {
 	models: DiscoveredModel[];
 	fetchedAt: number;
 }
 
+interface DiskCacheData {
+	[providerId: string]: CacheEntry;
+}
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const DISK_CACHE_TTL_MS = 60 * 60 * 1000;
 const discoveryCache = new Map<string, CacheEntry>();
 
 export function clearDiscoveryCache(providerId?: string): void {
@@ -41,7 +57,64 @@ export function clearDiscoveryCache(providerId?: string): void {
 	}
 }
 
-function buildHeaders(provider: ProviderEntry, apiKey: string): Record<string, string> {
+function getModelCachePath(): string {
+	return join(getConfigDir(), 'model-cache.json');
+}
+
+function readDiskCache(providerId: string): CacheEntry | null {
+	try {
+		const raw = readFileSync(getModelCachePath(), 'utf-8');
+		const data = JSON.parse(raw) as DiskCacheData;
+		const entry = data[providerId];
+		if (!entry) return null;
+		if (Date.now() - entry.fetchedAt >= DISK_CACHE_TTL_MS) return null;
+		return entry;
+	} catch {
+		return null;
+	}
+}
+
+function atomicWriteJson(path: string, data: string): void {
+	const tmp = `${path}.${Date.now()}.tmp`;
+	writeFileSync(tmp, data, 'utf-8');
+	renameSync(tmp, path);
+}
+
+function writeDiskCache(providerId: string, models: DiscoveredModel[]): void {
+	const cachePath = getModelCachePath();
+	let data: DiskCacheData = {};
+	try {
+		data = JSON.parse(readFileSync(cachePath, 'utf-8')) as DiskCacheData;
+	} catch {}
+	data[providerId] = { models, fetchedAt: Date.now() };
+	try {
+		mkdirSync(getConfigDir(), { recursive: true });
+		atomicWriteJson(cachePath, JSON.stringify(data));
+	} catch {}
+}
+
+export function clearDiskCache(providerId?: string): void {
+	const cachePath = getModelCachePath();
+	try {
+		const raw = readFileSync(cachePath, 'utf-8');
+		const data = JSON.parse(raw) as DiskCacheData;
+		if (providerId) {
+			delete data[providerId];
+		} else {
+			for (const key of Object.keys(data)) {
+				delete data[key];
+			}
+		}
+		mkdirSync(getConfigDir(), { recursive: true });
+		atomicWriteJson(cachePath, JSON.stringify(data));
+	} catch {}
+}
+
+function buildHeaders(
+	provider: ProviderEntry,
+	apiKey: string,
+): Record<string, string> {
+	if (provider.authStyle === 'none') return {};
 	if (provider.authStyle === 'x-api-key') {
 		return { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
 	}
@@ -72,15 +145,98 @@ function parseResponse(data: OpenAiModelsResponse): DiscoveredModel[] {
 		.sort((a, b) => a.id.localeCompare(b.id));
 }
 
+export async function fetchOllamaModels(
+	baseUrl: string,
+): Promise<DiscoveredModel[]> {
+	try {
+		const res = await fetch(`${baseUrl}/api/tags`, {
+			signal: AbortSignal.timeout(10000),
+		});
+		if (!res.ok) return [];
+		const data = (await res.json()) as OllamaTagsResponse;
+		if (!data.models || !Array.isArray(data.models)) return [];
+		return data.models
+			.map((m) => ({
+				id: m.name.replace(/:latest$/, ''),
+				ownedBy: 'ollama',
+				inputPricePer1M: 0,
+				outputPricePer1M: 0,
+			}))
+			.sort((a, b) => a.id.localeCompare(b.id));
+	} catch {
+		return [];
+	}
+}
+
 export async function fetchRemoteModels(
 	provider: ProviderEntry,
 	apiKey: string,
 ): Promise<DiscoveredModel[]> {
-	if (!provider.canValidate || !provider.needsApiKey) return [];
+	if (provider.apiFormat === 'ollama') {
+		const cached = discoveryCache.get(provider.id);
+		if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+			return cached.models;
+		}
+		const diskEntry = readDiskCache(provider.id);
+		if (diskEntry) {
+			discoveryCache.set(provider.id, {
+				models: diskEntry.models,
+				fetchedAt: diskEntry.fetchedAt,
+			});
+			return diskEntry.models;
+		}
+		const models = await fetchOllamaModels(provider.baseUrl);
+		if (models.length > 0) {
+			discoveryCache.set(provider.id, { models, fetchedAt: Date.now() });
+			writeDiskCache(provider.id, models);
+		}
+		return models;
+	}
+
+	if (!provider.canValidate) return [];
+
+	if (provider.authStyle === 'none' && !provider.needsApiKey) {
+		const cached = discoveryCache.get(provider.id);
+		if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+			return cached.models;
+		}
+		const diskEntry = readDiskCache(provider.id);
+		if (diskEntry) {
+			discoveryCache.set(provider.id, {
+				models: diskEntry.models,
+				fetchedAt: diskEntry.fetchedAt,
+			});
+			return diskEntry.models;
+		}
+		try {
+			const res = await fetch(`${provider.baseUrl}/models`, {
+				signal: AbortSignal.timeout(10000),
+			});
+			if (!res.ok) return [];
+			const data = (await res.json()) as OpenAiModelsResponse;
+			const models = parseResponse(data);
+			discoveryCache.set(provider.id, { models, fetchedAt: Date.now() });
+			writeDiskCache(provider.id, models);
+			return models;
+		} catch {
+			return [];
+		}
+	}
+
+	if (!provider.needsApiKey) return [];
 
 	const cached = discoveryCache.get(provider.id);
 	if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
 		return cached.models;
+	}
+
+	const diskEntry = readDiskCache(provider.id);
+	if (diskEntry) {
+		discoveryCache.set(provider.id, {
+			models: diskEntry.models,
+			fetchedAt: diskEntry.fetchedAt,
+		});
+		return diskEntry.models;
 	}
 
 	const headers = buildHeaders(provider, apiKey);
@@ -93,6 +249,7 @@ export async function fetchRemoteModels(
 		const data = (await res.json()) as OpenAiModelsResponse;
 		const models = parseResponse(data);
 		discoveryCache.set(provider.id, { models, fetchedAt: Date.now() });
+		writeDiskCache(provider.id, models);
 		return models;
 	} catch {
 		return [];
@@ -107,7 +264,7 @@ export async function fetchRemoteModelsForProvider(
 	const provider = findProvider(providerId);
 	if (!provider) return [];
 	const apiKey = resolveApiKey(provider, config);
-	if (!apiKey) return [];
+	if (provider.needsApiKey && !apiKey) return [];
 	return fetchRemoteModels(provider, apiKey);
 }
 
@@ -151,13 +308,26 @@ export async function getMergedModels(
 	provider: ProviderEntry,
 	config?: UserConfig,
 ): Promise<ModelEntry[]> {
-	if (!provider.needsApiKey || !provider.canValidate) {
+	if (provider.apiFormat === 'ollama') {
+		const discovered = await fetchRemoteModels(provider, '');
+		if (discovered.length === 0) return provider.models;
+		return mergeModels(provider.models, discovered);
+	}
+
+	if (!provider.canValidate) {
 		return provider.models;
 	}
 
-	const apiKey = resolveApiKey(provider, config);
-	if (!apiKey) return provider.models;
+	if (!provider.needsApiKey && provider.authStyle !== 'none') {
+		return provider.models;
+	}
 
+	if (provider.needsApiKey) {
+		const apiKey = resolveApiKey(provider, config);
+		if (!apiKey) return provider.models;
+	}
+
+	const apiKey = resolveApiKey(provider, config);
 	const discovered = await fetchRemoteModels(provider, apiKey);
 	if (discovered.length === 0) return provider.models;
 

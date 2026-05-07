@@ -9,7 +9,8 @@ import {
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import type { MemoryGraph } from '../memory/render.js';
+import type { MemoryGraph } from '../schemas.js';
+import { parseMemoryGraph } from '../schemas.js';
 import {
 	ensureMemoriesDir,
 	filterGraph,
@@ -24,7 +25,7 @@ import {
 	toStats,
 	toTreeView,
 } from '../memory/render.js';
-import { getStorePath } from '../paths.js';
+import { getExportsDir, getStorePath } from '../paths.js';
 import type {
 	CommandContext,
 	CommandResult,
@@ -41,12 +42,7 @@ async function getMemoryGraph(
 		if (readGraph) {
 			try {
 				const result = await readGraph.execute({});
-				if (typeof result === 'string') {
-					return JSON.parse(result);
-				}
-				if (result && typeof result === 'object') {
-					return result as MemoryGraph;
-				}
+				return parseMemoryGraph(result);
 			} catch {
 				// fall through to file
 			}
@@ -68,7 +64,7 @@ function readMemoryFile(): MemoryGraph | null {
 
 function findMemoryFile(): string | null {
 	if (process.env.MEMORY_FILE_PATH) return process.env.MEMORY_FILE_PATH;
-	const homePath = join(homedir(), '.openexplorer', 'memory.jsonl');
+	const homePath = join(homedir(), '.wmind', 'memory.jsonl');
 	if (existsSync(homePath)) return homePath;
 	const cwdPath = join(process.cwd(), 'memory.jsonl');
 	if (existsSync(cwdPath)) return cwdPath;
@@ -95,7 +91,7 @@ function emptyGraphMessage(ctx: CommandContext): string {
 	}
 	return (
 		'Memory MCP server is not connected and no memory.jsonl found.\n\n' +
-		'Tip: The starter and explorer packs include memory as a default MCP server. ' +
+		'Tip: The starter pack includes memory as a default MCP server. ' +
 		'Run /mcp-connect memory if it is not connected.'
 	);
 }
@@ -122,7 +118,7 @@ function parseArgs(raw: string): {
 }
 
 function ensureExportsDir(): string {
-	const dir = join(homedir(), '.openexplorer', 'exports');
+	const dir = getExportsDir();
 	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 	return dir;
 }
@@ -221,10 +217,7 @@ function handleSave(ctx: CommandContext, topic: string): CommandResult {
 	}
 
 	const topicLabel = topic || 'the conversation';
-	ctx.agent.messages.push({
-		role: 'user',
-		content: `[System: Extract key entities, relations, and observations from ${topicLabel} and save them using your memory tools. Call mcp__memory__create_entities for key concepts/people/technologies/projects, mcp__memory__add_observations for facts about existing entities, and mcp__memory__create_relations for how entities connect. Use concise entity names and atomic observation facts. Do NOT re-research -- only save what you already know from the conversation.]`,
-	});
+	ctx.agent.currentTask = `Extract key entities, relations, and observations from ${topicLabel} and save them using your memory tools. Call mcp__memory__create_entities for key concepts/people/technologies/projects, mcp__memory__add_observations for facts about existing entities, and mcp__memory__create_relations for how entities connect. Use concise entity names and atomic observation facts. Do NOT re-research -- only save what you already know from the conversation.`;
 
 	return {
 		type: 'trigger-agent',

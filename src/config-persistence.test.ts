@@ -1,16 +1,23 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-	type UserConfig,
-	loadUserConfig,
-	writeUserConfig,
-	getConfigPath,
-} from './config.js';
 import { modelCmd } from './builtins/index.js';
-import { resolveApiKey } from './sdk/provider-resolve.js';
+import {
+	getConfigPath,
+	loadUserConfig,
+	type UserConfig,
+	writeUserConfig,
+} from './config.js';
+import type { CommandResult } from './sdk/command.js';
 import { findProvider, resolveAlias } from './sdk/provider-registry.js';
+import { clearApiKeyCache, resolveApiKey } from './sdk/provider-resolve.js';
 
 const CONFIG_FILE = getConfigPath();
 
@@ -28,14 +35,15 @@ function backupRealConfig(): void {
 function restoreRealConfig(): void {
 	if (existsSync(CONFIG_FILE)) rmSync(CONFIG_FILE);
 	if (savedConfig !== undefined) {
-		mkdirSync(join(homedir(), '.openexplorer'), { recursive: true });
+		mkdirSync(join(homedir(), '.wmind'), { recursive: true });
 		writeFileSync(CONFIG_FILE, savedConfig);
 	}
 	savedConfig = undefined;
 }
 
 function makeModelCtx(modelArg: string, overrides: any = {}) {
-	let userConfig: UserConfig | undefined = overrides.userConfig || loadUserConfig();
+	let userConfig: UserConfig | undefined =
+		overrides.userConfig || loadUserConfig();
 	return {
 		args: modelArg,
 		agent: {
@@ -70,8 +78,24 @@ function makeModelCtx(modelArg: string, overrides: any = {}) {
 }
 
 describe('config persistence', () => {
-	beforeEach(backupRealConfig);
-	afterEach(restoreRealConfig);
+	let origAnthropicKey: string | undefined;
+	let origOpenrouterKey: string | undefined;
+	beforeEach(() => {
+		backupRealConfig();
+		origAnthropicKey = process.env.ANTHROPIC_API_KEY;
+		origOpenrouterKey = process.env.OPENROUTER_API_KEY;
+		process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
+		process.env.OPENROUTER_API_KEY = 'sk-or-test-key';
+	});
+	afterEach(() => {
+		restoreRealConfig();
+		if (origAnthropicKey !== undefined)
+			process.env.ANTHROPIC_API_KEY = origAnthropicKey;
+		else delete process.env.ANTHROPIC_API_KEY;
+		if (origOpenrouterKey !== undefined)
+			process.env.OPENROUTER_API_KEY = origOpenrouterKey;
+		else delete process.env.OPENROUTER_API_KEY;
+	});
 
 	describe('loadUserConfig / writeUserConfig', () => {
 		it('returns default when no config file exists', () => {
@@ -89,7 +113,9 @@ describe('config persistence', () => {
 			};
 			writeUserConfig(cfg);
 			const loaded = loadUserConfig();
-			expect(loaded.defaultModel).toBe('openrouter/anthropic/claude-sonnet-4-6');
+			expect(loaded.defaultModel).toBe(
+				'openrouter/anthropic/claude-sonnet-4-6',
+			);
 		});
 
 		it('simulates restart: write model A, reload, write model B, reload', () => {
@@ -101,7 +127,10 @@ describe('config persistence', () => {
 			let reloaded = loadUserConfig();
 			expect(reloaded.defaultModel).toBe('ollama/llama3');
 
-			writeUserConfig({ ...reloaded, defaultModel: 'anthropic/claude-sonnet-4-6' });
+			writeUserConfig({
+				...reloaded,
+				defaultModel: 'anthropic/claude-sonnet-4-6',
+			});
 			reloaded = loadUserConfig();
 			expect(reloaded.defaultModel).toBe('anthropic/claude-sonnet-4-6');
 			expect(reloaded.agents?.maxTurns).toBe(15);
@@ -119,7 +148,9 @@ describe('config persistence', () => {
 			});
 
 			const loaded = loadUserConfig();
-			expect(loaded.providers?.openrouter?.apiKey).toBe('env:OPENROUTER_API_KEY');
+			expect(loaded.providers?.openrouter?.apiKey).toBe(
+				'env:OPENROUTER_API_KEY',
+			);
 			expect(loaded.providers?.ollama).toBeDefined();
 			expect(loaded.systemPrompts?.default).toBe('original');
 			expect(loaded.agents?.maxTurns).toBe(10);
@@ -142,26 +173,17 @@ describe('config persistence', () => {
 			expect(ctx.config.model).toBe('anthropic/claude-sonnet-4-6');
 		});
 
-		it('resolves provider baseUrl when switching providers', () => {
+		it('resolves provider model on switch', async () => {
 			const ctx = makeModelCtx('anthropic/claude-sonnet-4-6');
-			modelCmd.handler(ctx);
-			const provider = findProvider('anthropic');
-			if (provider) {
-				expect(ctx.config.baseUrl).toBe(provider.baseUrl);
-			}
+			await modelCmd.handler(ctx);
+			expect(ctx.agent.model).toBe('anthropic/claude-sonnet-4-6');
 		});
 
-		it('resolves provider apiKey when switching providers', () => {
-			const origKey = process.env.ANTHROPIC_API_KEY;
-			process.env.ANTHROPIC_API_KEY = 'sk-ant-test-key';
-			try {
-				const ctx = makeModelCtx('anthropic/claude-sonnet-4-6');
-				modelCmd.handler(ctx);
-				expect(ctx.config.apiKey).toBe('sk-ant-test-key');
-			} finally {
-				if (origKey !== undefined) process.env.ANTHROPIC_API_KEY = origKey;
-				else delete process.env.ANTHROPIC_API_KEY;
-			}
+		it('caches API key on switch', async () => {
+			const ctx = makeModelCtx('anthropic/claude-sonnet-4-6');
+			await modelCmd.handler(ctx);
+			const provider = findProvider('anthropic');
+			expect(provider && resolveApiKey(provider)).toBeTruthy();
 		});
 
 		it('resolves aliases before persisting', () => {
@@ -190,6 +212,43 @@ describe('config persistence', () => {
 			expect(ctx.agent.model).toBe('anthropic/claude-sonnet-4-6');
 			expect(ctx.config.model).toBe('anthropic/claude-sonnet-4-6');
 		});
+
+		it('rejects unknown provider', async () => {
+			const ctx = makeModelCtx('fakeprovider/some-model');
+			const result = (await modelCmd.handler(ctx)) as CommandResult & {
+				content: string;
+			};
+			expect(result.content).toContain('Unknown provider');
+			expect(ctx.agent.model).not.toBe('fakeprovider/some-model');
+		});
+
+		it('accepts any model for known provider (no catalog validation)', async () => {
+			const ctx = makeModelCtx('anthropic/nonexistent-model-xyz');
+			const result = (await modelCmd.handler(ctx)) as CommandResult & {
+				content: string;
+			};
+			expect(result.content).toContain('Model changed to');
+			expect(ctx.agent.model).toBe('anthropic/nonexistent-model-xyz');
+		});
+
+		it('rejects model with no API key', async () => {
+			delete process.env.ANTHROPIC_API_KEY;
+			clearApiKeyCache();
+			const ctx = makeModelCtx('anthropic/claude-sonnet-4-6');
+			const result = (await modelCmd.handler(ctx)) as CommandResult & {
+				content: string;
+			};
+			expect(result.content).toContain('No API key');
+			expect(ctx.agent.model).not.toBe('anthropic/claude-sonnet-4-6');
+		});
+
+		it('rejects bare unknown model without provider prefix', async () => {
+			const ctx = makeModelCtx('totally-unknown-model-xyz');
+			const result = (await modelCmd.handler(ctx)) as CommandResult & {
+				content: string;
+			};
+			expect(result.content).toContain('Unknown model');
+		});
 	});
 
 	describe('model persistence across multiple switches', () => {
@@ -212,7 +271,9 @@ describe('config persistence', () => {
 				systemPrompts: { default: 'Be helpful' },
 			});
 
-			const ctx = makeModelCtx('ollama/llama3', { userConfig: loadUserConfig() });
+			const ctx = makeModelCtx('ollama/llama3', {
+				userConfig: loadUserConfig(),
+			});
 			modelCmd.handler(ctx);
 
 			const loaded = loadUserConfig();
@@ -223,6 +284,14 @@ describe('config persistence', () => {
 	});
 
 	describe('resolveApiKey for provider switching', () => {
+		beforeEach(() => {
+			clearApiKeyCache();
+		});
+
+		afterEach(() => {
+			clearApiKeyCache();
+		});
+
 		it('resolves from env var for openrouter', () => {
 			const orig = process.env.OPENROUTER_API_KEY;
 			process.env.OPENROUTER_API_KEY = 'or-test-key';
@@ -238,16 +307,16 @@ describe('config persistence', () => {
 
 		it('returns empty string when no key available', () => {
 			const orig1 = process.env.OPENROUTER_API_KEY;
-			const orig2 = process.env.OPENEXPLORER_API_KEY;
+			const orig2 = process.env.WMIND_API_KEY;
 			delete process.env.OPENROUTER_API_KEY;
-			delete process.env.OPENEXPLORER_API_KEY;
+			delete process.env.WMIND_API_KEY;
 			try {
 				const provider = findProvider('openrouter');
 				if (!provider) return;
 				expect(resolveApiKey(provider, undefined)).toBe('');
 			} finally {
 				if (orig1 !== undefined) process.env.OPENROUTER_API_KEY = orig1;
-				if (orig2 !== undefined) process.env.OPENEXPLORER_API_KEY = orig2;
+				if (orig2 !== undefined) process.env.WMIND_API_KEY = orig2;
 			}
 		});
 
@@ -267,10 +336,10 @@ describe('config persistence', () => {
 			}
 		});
 
-		it('returns "local" for providers without API key requirement', () => {
-			const provider = findProvider('ollama');
-			if (!provider) return;
-			expect(resolveApiKey(provider, undefined)).toBe('local');
-		});
+	it('returns empty string for providers without API key requirement', () => {
+		const provider = findProvider('ollama');
+		if (!provider) return;
+		expect(resolveApiKey(provider, undefined)).toBe('');
+	});
 	});
 });

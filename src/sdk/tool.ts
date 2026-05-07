@@ -1,3 +1,5 @@
+import type { z } from 'zod';
+
 export interface ToolDef {
 	name: string;
 	description: string;
@@ -10,6 +12,7 @@ export interface ToolDef {
 	longRunning?: boolean;
 	origin?: 'builtin' | 'pack' | 'mcp';
 	mcpServer?: string;
+	argSchema?: z.ZodTypeAny;
 }
 
 export type ToolSetPreset = 'all' | 'readonly' | 'none';
@@ -33,6 +36,7 @@ export interface SkillDef {
 	model?: string;
 	argumentHint?: string;
 	autoDiscover?: boolean;
+	packName?: string;
 }
 
 import type { SlashCommand } from './command.js';
@@ -49,6 +53,8 @@ export interface ToolPack {
 	commands?: SlashCommand[];
 	curation?: { summarize?: string; export?: string };
 	init?: () => Promise<void>;
+	mcpServers?: Record<string, unknown>;
+	systemPrompt?: string;
 }
 
 export function toolDefToOpenAIFormat(tool: ToolDef) {
@@ -70,6 +76,21 @@ export function toolDefToAnthropicFormat(tool: ToolDef) {
 	};
 }
 
+function matchesToolPattern(pattern: string, toolName: string): boolean {
+	if (pattern === toolName) return true;
+	if (pattern.endsWith('*')) {
+		const prefix = pattern.slice(0, -1);
+		return toolName.startsWith(prefix);
+	}
+	return false;
+}
+
+function filterByPatterns(tools: ToolDef[], patterns: string[]): ToolDef[] {
+	return tools.filter((t) =>
+		patterns.some((p) => matchesToolPattern(p, t.name)),
+	);
+}
+
 export function applyToolFilter(
 	tools: ToolDef[],
 	filter?: ToolFilter,
@@ -86,11 +107,36 @@ export function applyToolFilter(
 		none: { include: [] },
 	};
 
-	const resolved = filter.preset ? (presets[filter.preset] ?? filter) : filter;
+	let resolved: ToolFilter;
+	if (filter.preset) {
+		const preset = presets[filter.preset] ?? {};
+		const mergedExclude = [
+			...(preset.exclude ?? []),
+			...(filter.exclude ?? []),
+		];
+		resolved = {
+			include: filter.include ?? preset.include,
+			exclude: mergedExclude.length > 0 ? mergedExclude : undefined,
+		};
+	} else {
+		resolved = filter;
+	}
+
+	if (resolved.include && resolved.exclude) {
+		const included = filterByPatterns(tools, resolved.include);
+		const nonExcluded = tools.filter(
+			(t) => !resolved.exclude?.some((p) => matchesToolPattern(p, t.name)),
+		);
+		const includedNames = new Set(included.map((t) => t.name));
+		const extras = nonExcluded.filter((t) => !includedNames.has(t.name));
+		return [...included, ...extras];
+	}
+
 	let result = tools;
-	if (resolved.include)
-		result = result.filter((t) => resolved.include?.includes(t.name));
+	if (resolved.include) result = filterByPatterns(result, resolved.include);
 	if (resolved.exclude)
-		result = result.filter((t) => !resolved.exclude?.includes(t.name));
+		result = result.filter(
+			(t) => !resolved.exclude?.some((p) => matchesToolPattern(p, t.name)),
+		);
 	return result;
 }

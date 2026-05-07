@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { HistoryEntry } from './sdk/command.js';
-import { computeInputBarHeight } from './ui/input-bar.js';
+import { computeInputBarHeight } from './ui2/input-bar.js';
 
 describe('parseSlashCommand', () => {
 	function parseSlashCommand(
@@ -136,33 +136,41 @@ describe('compaction guard', () => {
 });
 
 describe('computeInputBarHeight', () => {
-	it('returns 3 when streaming', () => {
-		expect(computeInputBarHeight('anything', true, false)).toBe(3);
+	it('returns 4 when streaming', () => {
+		expect(computeInputBarHeight('anything', true, false)).toBe(4);
 	});
 
-	it('returns 3 when waiting confirmation', () => {
-		expect(computeInputBarHeight('anything', false, true)).toBe(3);
+	it('returns 4 when waiting confirmation', () => {
+		expect(computeInputBarHeight('anything', false, true)).toBe(4);
 	});
 
-	it('returns 4 for single-line input in idle state (3 + 1 margin)', () => {
+	it('returns 4 + msg lines when waiting cmd confirmation', () => {
+		expect(
+			computeInputBarHeight('anything', false, false, true, 'one\ntwo\nthree'),
+		).toBe(7);
+	});
+
+	it('returns 4 for cmd confirmation with empty message', () => {
+		expect(computeInputBarHeight('anything', false, false, true, '')).toBe(4);
+	});
+
+	it('cmd confirmation takes precedence over streaming', () => {
+		expect(computeInputBarHeight('anything', true, false, true, 'a\nb')).toBe(
+			6,
+		);
+	});
+
+	it('returns fixed 4 for single-line input in idle state', () => {
 		expect(computeInputBarHeight('hello', false, false)).toBe(4);
 	});
 
-	it('returns 5 for two-line input in idle state (4 + 1 margin)', () => {
-		expect(computeInputBarHeight('line1\nline2', false, false)).toBe(5);
+	it('returns fixed 4 for multi-line input in idle state', () => {
+		expect(computeInputBarHeight('line1\nline2', false, false)).toBe(4);
 	});
 
-	it('returns 6 for three-line input in idle state (5 + 1 margin)', () => {
-		expect(computeInputBarHeight('a\nb\nc', false, false)).toBe(6);
-	});
-
-	it('returns 7 for four-line input (6 + 1 margin)', () => {
-		expect(computeInputBarHeight('a\nb\nc\nd', false, false)).toBe(7);
-	});
-
-	it('caps at 7 even for very long input', () => {
+	it('returns fixed 4 for long input', () => {
 		const long = Array.from({ length: 20 }, (_, i) => `line${i}`).join('\n');
-		expect(computeInputBarHeight(long, false, false)).toBe(7);
+		expect(computeInputBarHeight(long, false, false)).toBe(4);
 	});
 
 	it('empty input returns 4 in idle state', () => {

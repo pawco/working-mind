@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { UserConfig } from '../config.js';
 import { PROVIDERS } from './provider-registry.js';
 import {
+	cacheApiKey,
+	clearApiKeyCache,
 	detectAvailableProviders,
+	hasCachedKey,
 	isOllamaModelAvailable,
 	matchOllamaLocalModel,
 	type OllamaModelInfo,
@@ -41,6 +44,29 @@ describe('resolveModelSpec', () => {
 		expect(result.model?.id).toBe('anthropic/claude-sonnet-4.6');
 	});
 
+	it('providerRelativeModelId matches curated model id', () => {
+		const result = resolveModelSpec('openrouter/anthropic/claude-sonnet-4.6');
+		expect(result.providerRelativeModelId).toBe('anthropic/claude-sonnet-4.6');
+		expect(result.providerRelativeModelId).toBe(result.model?.id);
+	});
+
+	it('providerRelativeModelId is correct for non-curated model', () => {
+		const result = resolveModelSpec('openrouter/anthropic/claude-sonnet-4');
+		expect(result.providerRelativeModelId).toBe('anthropic/claude-sonnet-4');
+		expect(result.model).toBeUndefined();
+	});
+
+	it('providerRelativeModelId for single-segment model', () => {
+		const result = resolveModelSpec('ollama/llama3');
+		expect(result.providerRelativeModelId).toBe('llama3');
+	});
+
+	it('providerRelativeModelId for openai single-segment model', () => {
+		const result = resolveModelSpec('openai/gpt-5.4-mini');
+		expect(result.providerRelativeModelId).toBe('gpt-5.4-mini');
+		expect(result.model?.id).toBe('gpt-5.4-mini');
+	});
+
 	it('returns adapter with correct format', () => {
 		const openaiResult = resolveModelSpec('openai/gpt-5.4');
 		expect(openaiResult.adapter.format).toBe('openai');
@@ -49,16 +75,16 @@ describe('resolveModelSpec', () => {
 		expect(anthropicResult.adapter.format).toBe('anthropic');
 	});
 
-	it('ollama gets apiKey "local"', () => {
+	it('ollama gets empty apiKey', () => {
 		const result = resolveModelSpec('ollama/qwen3-coder');
-		expect(result.apiKey).toBe('local');
+		expect(result.apiKey).toBe('');
 	});
 
-	it('unknown provider falls back to openrouter', () => {
-		const result = resolveModelSpec('unknown/some-model');
-		expect(result.provider.id).toBe('openrouter');
+	it('unknown provider throws error', () => {
+		expect(() => resolveModelSpec('unknown/some-model')).toThrow(
+			'Unknown provider "unknown"',
+		);
 	});
-
 	it('resolves bare ollama model name by model ID lookup', () => {
 		const result = resolveModelSpec('gemma4:e4b');
 		expect(result.provider.id).toBe('ollama');
@@ -76,20 +102,22 @@ describe('resolveApiKey', () => {
 
 	beforeEach(() => {
 		process.env = { ...origEnv };
+		clearApiKeyCache();
 	});
 
 	afterEach(() => {
 		process.env = origEnv;
+		clearApiKeyCache();
 	});
 
-	it('returns "local" for providers without api key need', () => {
+	it('returns empty string for providers without api key need', () => {
 		const local = {
 			id: 'ollama',
 			envVar: '',
 			envVarAliases: [],
 			needsApiKey: false,
 		} as any;
-		expect(resolveApiKey(local)).toBe('local');
+		expect(resolveApiKey(local)).toBe('');
 	});
 
 	it('reads from provider env var', () => {
@@ -104,25 +132,25 @@ describe('resolveApiKey', () => {
 	});
 
 	it('reads from env var alias', () => {
-		process.env.OPENEXPLORER_GROQ_KEY = 'gq-test-456';
+		process.env.WMIND_GROQ_KEY = 'gq-test-456';
 		const groq = {
 			id: 'groq',
 			envVar: 'GROQ_API_KEY',
-			envVarAliases: ['OPENEXPLORER_GROQ_KEY'],
+			envVarAliases: ['WMIND_GROQ_KEY'],
 			needsApiKey: true,
 		} as any;
 		expect(resolveApiKey(groq)).toBe('gq-test-456');
 	});
 
-	it('falls back to OPENEXPLORER_API_KEY', () => {
-		process.env.OPENEXPLORER_API_KEY = 'oe-test-789';
+	it('WMIND_API_KEY is NOT used as universal fallback', () => {
+		process.env.WMIND_API_KEY = 'wm-test-789';
 		const provider = {
 			id: 'some-provider',
 			envVar: 'SOME_API_KEY',
 			envVarAliases: [],
 			needsApiKey: true,
 		} as any;
-		expect(resolveApiKey(provider)).toBe('oe-test-789');
+		expect(resolveApiKey(provider)).toBe('');
 	});
 
 	it('reads from config env: reference', () => {
@@ -143,7 +171,7 @@ describe('resolveApiKey', () => {
 
 	it('returns empty string when no key found', () => {
 		delete process.env.OPENAI_API_KEY;
-		delete process.env.OPENEXPLORER_API_KEY;
+		delete process.env.WMIND_API_KEY;
 		const openai = {
 			id: 'openai',
 			envVar: 'OPENAI_API_KEY',
@@ -159,10 +187,12 @@ describe('detectAvailableProviders', () => {
 
 	beforeEach(() => {
 		process.env = { ...origEnv };
+		clearApiKeyCache();
 	});
 
 	afterEach(() => {
 		process.env = origEnv;
+		clearApiKeyCache();
 	});
 
 	it('detects providers with API keys', () => {
@@ -191,7 +221,7 @@ describe('detectAvailableProviders', () => {
 		delete process.env.GROQ_API_KEY;
 		delete process.env.DEEPSEEK_API_KEY;
 		delete process.env.GEMINI_API_KEY;
-		delete process.env.OPENEXPLORER_API_KEY;
+		delete process.env.WMIND_API_KEY;
 		const available = detectAvailableProviders();
 		const ids = available.map((p) => p.id);
 		const expectedLocal = PROVIDERS.filter((p) => !p.needsApiKey).map(
@@ -353,5 +383,98 @@ describe('resolveOllamaModelName', () => {
 
 	it('returns original when no local models', () => {
 		expect(resolveOllamaModelName('gemma3:27b', [])).toBe('gemma3:27b');
+	});
+});
+
+describe('cacheApiKey', () => {
+	it('stores key in memory cache', () => {
+		cacheApiKey('test-provider', 'sk-cached-key');
+		expect(hasCachedKey('test-provider')).toBe(true);
+		clearApiKeyCache();
+		expect(hasCachedKey('test-provider')).toBe(false);
+	});
+});
+
+describe('resolveApiKey with in-memory cache', () => {
+	const origEnv = process.env;
+
+	beforeEach(() => {
+		process.env = { ...origEnv };
+		clearApiKeyCache();
+	});
+
+	afterEach(() => {
+		process.env = origEnv;
+		clearApiKeyCache();
+	});
+
+	it('returns cached key even when env vars are absent', () => {
+		delete process.env.OPENROUTER_API_KEY;
+		delete process.env.WMIND_API_KEY;
+		cacheApiKey('openrouter', 'sk-from-cache');
+		const openrouter = {
+			id: 'openrouter',
+			envVar: 'OPENROUTER_API_KEY',
+			envVarAliases: [],
+			needsApiKey: true,
+		} as any;
+		expect(resolveApiKey(openrouter)).toBe('sk-from-cache');
+	});
+
+	it('caches key found from env var on first access', () => {
+		process.env.OPENAI_API_KEY = 'sk-auto-cached';
+		const openai = {
+			id: 'openai',
+			envVar: 'OPENAI_API_KEY',
+			envVarAliases: [],
+			needsApiKey: true,
+		} as any;
+		const key = resolveApiKey(openai);
+		expect(key).toBe('sk-auto-cached');
+		expect(hasCachedKey('openai')).toBe(true);
+	});
+
+	it('caches key found from config env: reference', () => {
+		process.env.MY_CONFIG_KEY = 'config-key-val';
+		const config: UserConfig = {
+			providers: {
+				'my-provider': { apiKey: 'env:MY_CONFIG_KEY' },
+			},
+		};
+		const provider = {
+			id: 'my-provider',
+			envVar: 'MY_PROVIDER_KEY',
+			envVarAliases: [],
+			needsApiKey: true,
+		} as any;
+		const key = resolveApiKey(provider, config);
+		expect(key).toBe('config-key-val');
+		expect(hasCachedKey('my-provider')).toBe(true);
+	});
+});
+
+describe('resolveModelSpec with provider prefix', () => {
+	it('resolves openrouter with multi-segment model ID', () => {
+		const result = resolveModelSpec('openrouter/anthropic/claude-sonnet-4.6');
+		expect(result.provider.id).toBe('openrouter');
+		expect(result.model?.id).toBe('anthropic/claude-sonnet-4.6');
+	});
+
+	it('resolves openrouter with x-ai model', () => {
+		const result = resolveModelSpec('openrouter/x-ai/grok-4.1-fast');
+		expect(result.provider.id).toBe('openrouter');
+		expect(result.model?.id).toBe('x-ai/grok-4.1-fast');
+	});
+
+	it('resolves openai with simple model ID', () => {
+		const result = resolveModelSpec('openai/gpt-5.4-mini');
+		expect(result.provider.id).toBe('openai');
+		expect(result.model?.id).toBe('gpt-5.4-mini');
+	});
+
+	it('correctly identifies provider when model ID contains slashes', () => {
+		const result = resolveModelSpec('openrouter/google/gemini-2.5-pro');
+		expect(result.provider.id).toBe('openrouter');
+		expect(result.provider.baseUrl).toContain('openrouter');
 	});
 });

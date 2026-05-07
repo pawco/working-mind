@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { McpServerConfig } from '../config.js';
 import type { McpRegistry, McpServerInfo } from '../mcp/registry.js';
-import type { CommandContext, CommandResult } from '../sdk/command.js';
+import type { CommandContext } from '../sdk/command.js';
 import { mcpConnectCmd } from './mcp-cmd.js';
 
 function makeCtx(mcpRegistry: McpRegistry, args: string): CommandContext {
@@ -17,6 +17,8 @@ function makeCtx(mcpRegistry: McpRegistry, args: string): CommandContext {
 			status: 'idle',
 			model: 'test',
 			activeSkills: new Set(),
+			currentTask: undefined,
+			packSystemPrompt: undefined,
 		},
 		config: {} as any,
 		mcpRegistry,
@@ -130,6 +132,59 @@ describe('mcp-connect', () => {
 		}
 	});
 
+	it('returns reconnect-server for connected server with env vars', async () => {
+		const registry = makeMockRegistry({
+			'brave-search': {
+				info: { status: 'connected', toolCount: 3 },
+				config: {
+					type: 'local',
+					command: ['npx', '-y', '@brave/brave-search-mcp-server'],
+					env: { BRAVE_API_KEY: 'old-key' },
+					enabled: true,
+					requiredEnvVars: [
+						{
+							name: 'BRAVE_API_KEY',
+							label: 'Brave API Key',
+							required: true,
+							sensitive: true,
+						},
+					],
+				},
+			},
+		});
+		const result = await mcpConnectCmd.handler(
+			makeCtx(registry, 'brave-search'),
+		);
+		expect(result.type).toBe('reconnect-server');
+		if (result.type === 'reconnect-server') {
+			expect(result.serverName).toBe('brave-search');
+			expect(result.requiredEnvVars.length).toBe(1);
+			expect(result.requiredEnvVars[0].name).toBe('BRAVE_API_KEY');
+		}
+	});
+
+	it('returns reconnect-server for connected server with catalog env vars', async () => {
+		const registry = makeMockRegistry({
+			firecrawl: {
+				info: { status: 'connected', toolCount: 5 },
+				config: {
+					type: 'local',
+					command: ['npx', '-y', 'firecrawl-mcp'],
+					env: { FIRECRAWL_API_KEY: 'old-key' },
+					enabled: true,
+				},
+			},
+		});
+		const result = await mcpConnectCmd.handler(
+			makeCtx(registry, 'firecrawl'),
+		);
+		expect(result.type).toBe('reconnect-server');
+		if (result.type === 'reconnect-server') {
+			expect(result.serverName).toBe('firecrawl');
+			expect(result.requiredEnvVars[0].name).toBe('FIRECRAWL_API_KEY');
+		}
+	});
+
 	it('returns reconnect-server for disabled server with missing env vars', async () => {
 		const registry = makeMockRegistry({
 			'brave-search': {
@@ -225,7 +280,11 @@ describe('mcp-connect', () => {
 	it('returns reconnect-server for error-state server with missing catalog env vars', async () => {
 		const registry = makeMockRegistry({
 			'brave-search': {
-				info: { status: 'error', enabled: true, error: 'MCP error -32000: API key required' },
+				info: {
+					status: 'error',
+					enabled: true,
+					error: 'MCP error -32000: API key required',
+				},
 				config: {
 					type: 'local',
 					command: ['npx', '-y', '@brave/brave-search-mcp-server'],
@@ -257,9 +316,7 @@ describe('mcp-connect', () => {
 				},
 			},
 		});
-		const result = await mcpConnectCmd.handler(
-			makeCtx(registry, 'firecrawl'),
-		);
+		const result = await mcpConnectCmd.handler(makeCtx(registry, 'firecrawl'));
 		expect(result.type).toBe('reconnect-server');
 		if (result.type === 'reconnect-server') {
 			expect(result.serverName).toBe('firecrawl');
@@ -335,5 +392,70 @@ describe('mcp-connect', () => {
 			expect(result.serverName).toBe('brave-search');
 			expect(result.requiredEnvVars[0].name).toBe('BRAVE_API_KEY');
 		}
+	});
+
+	it('returns reconnect-server for pathPrompt server with INPUT_DIR in requiredEnvVars', async () => {
+		const registry = makeMockRegistry({
+			filesystem: {
+				info: { status: 'disconnected', enabled: false },
+				config: {
+					type: 'local',
+					command: ['npx', '-y', 'fs-mcp', '$INPUT_DIR'],
+					enabled: false,
+					pathPrompt: 'Which directory to scan?',
+					requiredEnvVars: [
+						{
+							name: 'INPUT_DIR',
+							label: 'Which directory to scan?',
+							required: true,
+							sensitive: false,
+						},
+					],
+				},
+			},
+		});
+		const result = await mcpConnectCmd.handler(
+			makeCtx(registry, 'filesystem'),
+		);
+		expect(result.type).toBe('reconnect-server');
+		if (result.type === 'reconnect-server') {
+			expect(result.serverName).toBe('filesystem');
+			expect(result.requiredEnvVars.length).toBe(1);
+			expect(result.requiredEnvVars[0].name).toBe('INPUT_DIR');
+			expect(result.requiredEnvVars[0].label).toBe('Which directory to scan?');
+			expect(result.requiredEnvVars[0].sensitive).toBe(false);
+		}
+	});
+
+	it('re-enables pathPrompt server when INPUT_DIR is in config.env', async () => {
+		const registry = makeMockRegistry({
+			filesystem: {
+				info: { status: 'disconnected', enabled: false },
+				config: {
+					type: 'local',
+					command: ['npx', '-y', 'fs-mcp', '$INPUT_DIR'],
+					enabled: false,
+					pathPrompt: 'Which directory to scan?',
+					env: { INPUT_DIR: '/tmp/codebase' },
+					requiredEnvVars: [
+						{
+							name: 'INPUT_DIR',
+							label: 'Which directory to scan?',
+							required: true,
+							sensitive: false,
+						},
+					],
+				},
+			},
+		});
+		const result = await mcpConnectCmd.handler(
+			makeCtx(registry, 'filesystem'),
+		);
+		expect(result.type).toBe('message');
+		if (result.type === 'message') {
+			expect(result.content).toContain('Connected');
+		}
+		expect(registry.removeServer).toHaveBeenCalledWith('filesystem');
+		expect(registry.addServer).toHaveBeenCalled();
 	});
 });

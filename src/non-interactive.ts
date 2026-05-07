@@ -9,16 +9,19 @@ export async function runNonInteractive(
 	registry: AgentRegistry,
 	_mcpRegistry?: McpRegistry,
 ): Promise<string> {
-	const agent = registry.createAgent({
-		name: 'non-interactive',
-		persona: config.persona,
-		model: config.model,
-	});
+	const existing = registry.getActive();
+	const agent =
+		existing ||
+		registry.createAgent({
+			name: 'non-interactive',
+			persona: config.persona,
+			model: config.model,
+			packName: config.packs?.[0]?.name,
+			systemPromptOverride: config.systemPrompt,
+		});
 
 	const result = await runAgent([{ role: 'user', content: prompt }], {
 		model: config.model,
-		apiKey: config.apiKey || process.env.OPENEXPLORER_API_KEY || '',
-		baseUrl: config.baseUrl,
 		systemPrompt: agent.systemPrompt,
 		tools: agent.tools,
 		maxTurns: config.maxTurns || 5,

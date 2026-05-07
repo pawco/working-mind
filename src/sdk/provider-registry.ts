@@ -1,34 +1,7 @@
 import { loadProviders } from './provider-loader.js';
+import type { ModelEntry, ProviderEntry } from '../schemas.js';
 
-export interface ModelEntry {
-	id: string;
-	displayName: string;
-	contextWindow: number;
-	inputPricePer1M: number;
-	outputPricePer1M: number;
-	supportsReasoning: boolean;
-	supportsToolCalling: boolean;
-	aliases?: string[];
-}
-
-export interface ProviderEntry {
-	id: string;
-	displayName: string;
-	baseUrl: string;
-	apiFormat: 'openai' | 'anthropic' | 'ollama';
-	envVar: string;
-	envVarAliases?: string[];
-	models: ModelEntry[];
-	free?: boolean | string;
-	website: string;
-	needsApiKey: boolean;
-	canValidate: boolean;
-	modelIdFormat: 'full' | 'provider-prefix';
-	modelPrefixes: string[];
-	localProvider?: { probeUrl: string; preferredModels: string[] };
-	isPrimary: boolean;
-	authStyle: 'bearer' | 'x-api-key' | 'none';
-}
+export type { ModelEntry, ProviderEntry };
 
 const data = loadProviders();
 export const PROVIDERS: ProviderEntry[] = data.providers;

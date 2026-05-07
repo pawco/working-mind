@@ -12,7 +12,8 @@ export interface ProviderConfig {
 export type StreamEvent =
 	| { type: 'text'; content: string }
 	| { type: 'tool_call'; id: string; name: string; arguments: string }
-	| { type: 'thinking'; content: string };
+	| { type: 'thinking'; content: string }
+	| { type: 'usage'; promptTokens: number; completionTokens: number };
 
 export interface Provider {
 	stream(

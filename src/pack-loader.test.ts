@@ -1,10 +1,11 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
 	buildMcpConfigs,
 	findPackDir,
 	loadPack,
+	readCommands,
 	readCurationPrompts,
 	readPackManifest,
 	readPersonas,
@@ -66,7 +67,7 @@ describe('readPackManifest', () => {
 			{ 'prompt.md': 'Test' },
 		);
 
-		expect(() => readPackManifest(dir)).toThrow(/required: true/);
+		expect(() => readPackManifest(dir)).toThrow(/optional/);
 	});
 
 	it('allows manifest with required env var on optional MCP server', () => {
@@ -88,7 +89,7 @@ describe('readPackManifest', () => {
 			{ 'prompt.md': 'Test' },
 		);
 
-		expect(() => readPackManifest(dir)).not.toThrow();
+		expect(() => readPackManifest(dir)).toThrow(/optional/);
 	});
 
 	it('rejects manifest with required setting', () => {
@@ -112,7 +113,7 @@ describe('readPackManifest', () => {
 			{ 'prompt.md': 'Test' },
 		);
 
-		expect(() => readPackManifest(dir)).toThrow(/required: true/);
+		expect(() => readPackManifest(dir)).toThrow(/optional/);
 	});
 
 	it('rejects invalid pack name', () => {
@@ -226,7 +227,7 @@ Step 2: Read
 });
 
 describe('buildMcpConfigs', () => {
-	it('builds npx command for package-based servers', () => {
+	it('builds npx command for package-based servers', async () => {
 		const manifest = {
 			name: 'test',
 			version: '0.1.0',
@@ -237,12 +238,12 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.search.command).toEqual(['npx', '-y', 'some-mcp-server']);
 		expect(configs.search.type).toBe('local');
 	});
 
-	it('skips servers already in user config', () => {
+	it('merges saved config with pack defaults', async () => {
 		const manifest = {
 			name: 'test',
 			version: '0.1.0',
@@ -253,18 +254,20 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = buildMcpConfigs(
+		const configs = await buildMcpConfigs(
 			manifest as any,
 			{
 				mcpServers: {
-					search: { type: 'local', command: ['npx', 'existing'], env: {} },
+					search: { type: 'local', command: ['npx', 'existing'], env: { API_KEY: 'saved-key' }, enabled: true },
 				},
 			} as any,
 		);
-		expect(configs.search).toBeUndefined();
+		expect(configs.search.command).toEqual(['npx', 'existing']);
+		expect(configs.search.env?.API_KEY).toBe('saved-key');
+		expect(configs.search.enabled).toBe(true);
 	});
 
-	it('uses env var values from process.env', () => {
+	it('uses env var values from process.env', async () => {
 		process.env.TEST_PACK_API_KEY = 'test-key-123';
 		const manifest = {
 			name: 'test',
@@ -285,12 +288,12 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.search.env?.TEST_PACK_API_KEY).toBe('test-key-123');
 		delete process.env.TEST_PACK_API_KEY;
 	});
 
-	it('skips servers with missing required env vars (enabled: false)', () => {
+	it('skips servers with missing required env vars (enabled: false)', async () => {
 		const manifest = {
 			name: 'test',
 			mcpServers: {
@@ -307,7 +310,7 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.search.enabled).toBe(false);
 		expect(configs.memory.enabled).toBe(true);
 		expect(configs.search.requiredEnvVars).toBeDefined();
@@ -316,7 +319,7 @@ describe('buildMcpConfigs', () => {
 		expect(configs.search.requiredEnvVars?.[0].required).toBe(true);
 	});
 
-	it('connects servers when required env vars are present', () => {
+	it('connects servers when required env vars are present', async () => {
 		process.env.TEST_REQ_KEY = 'present';
 		const manifest = {
 			name: 'test',
@@ -330,10 +333,141 @@ describe('buildMcpConfigs', () => {
 			},
 		};
 
-		const configs = buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
 		expect(configs.search.enabled).toBe(true);
 		expect(configs.search.env?.TEST_REQ_KEY).toBe('present');
 		delete process.env.TEST_REQ_KEY;
+	});
+
+	it('adds INPUT_DIR as required env var when pathPrompt set and $INPUT_DIR in command', async () => {
+		const manifest = {
+			name: 'test',
+			mcpServers: {
+				filesystem: {
+					command: ['npx', '-y', 'fs-mcp', '$INPUT_DIR'],
+					pathPrompt: 'Which directory to scan?',
+					env: {},
+				},
+			},
+		};
+
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		expect(configs.filesystem.enabled).toBe(false);
+		expect(configs.filesystem.pathPrompt).toBe('Which directory to scan?');
+		expect(configs.filesystem.requiredEnvVars).toBeDefined();
+		expect(configs.filesystem.requiredEnvVars?.length).toBe(1);
+		expect(configs.filesystem.requiredEnvVars?.[0].name).toBe('INPUT_DIR');
+		expect(configs.filesystem.requiredEnvVars?.[0].label).toBe(
+			'Which directory to scan?',
+		);
+		expect(configs.filesystem.requiredEnvVars?.[0].sensitive).toBe(false);
+	});
+
+	it('enables server when INPUT_DIR is in process.env', async () => {
+		process.env.INPUT_DIR = '/tmp/test-scan';
+		const manifest = {
+			name: 'test',
+			mcpServers: {
+				filesystem: {
+					command: ['npx', '-y', 'fs-mcp', '$INPUT_DIR'],
+					pathPrompt: 'Which directory to scan?',
+					env: {},
+				},
+			},
+		};
+
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		expect(configs.filesystem.enabled).toBe(true);
+		expect(configs.filesystem.env?.INPUT_DIR).toBe('/tmp/test-scan');
+		delete process.env.INPUT_DIR;
+	});
+
+	it('does not add INPUT_DIR env var when no pathPrompt', async () => {
+		const manifest = {
+			name: 'test',
+			mcpServers: {
+				filesystem: {
+					command: ['npx', '-y', 'fs-mcp', '$INPUT_DIR'],
+					env: {},
+				},
+			},
+		};
+
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		expect(configs.filesystem.requiredEnvVars).toBeUndefined();
+	});
+
+	it('does not add INPUT_DIR env var when no $INPUT_DIR in command', async () => {
+		const manifest = {
+			name: 'test',
+			mcpServers: {
+				memory: {
+					package: 'memory-mcp',
+					pathPrompt: 'Where is memory?',
+					env: {},
+				},
+			},
+		};
+
+		const configs = await buildMcpConfigs(manifest as any, { mcpServers: {} } as any);
+		expect(configs.memory.requiredEnvVars).toBeUndefined();
+		expect(configs.memory.enabled).toBe(true);
+	});
+
+	it('process.env overrides stale saved env var value', async () => {
+		process.env.BRAVE_API_KEY = 'fresh-real-key';
+		const manifest = {
+			name: 'test',
+			version: '0.1.0',
+			description: 'Test',
+			prompt: 'prompt.md',
+			mcpServers: {
+				search: {
+					package: 'some-mcp-server',
+					env: {
+						BRAVE_API_KEY: { setting: 'BRAVE_API_KEY', sensitive: true, required: false },
+					},
+				},
+			},
+		};
+
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{
+				mcpServers: {
+					search: { type: 'local', command: ['npx', 'search'], env: { BRAVE_API_KEY: 'old-stale-key' }, enabled: true },
+				},
+			} as any,
+		);
+		expect(configs.search.env?.BRAVE_API_KEY).toBe('fresh-real-key');
+		delete process.env.BRAVE_API_KEY;
+	});
+
+	it('saved env var used as fallback when not in process.env', async () => {
+		const manifest = {
+			name: 'test',
+			version: '0.1.0',
+			description: 'Test',
+			prompt: 'prompt.md',
+			mcpServers: {
+				search: {
+					package: 'some-mcp-server',
+					env: {
+						BRAVE_API_KEY: { setting: 'BRAVE_API_KEY', sensitive: true, required: false },
+					},
+				},
+			},
+		};
+
+		const configs = await buildMcpConfigs(
+			manifest as any,
+			{
+				mcpServers: {
+					search: { type: 'local', command: ['npx', 'search'], env: { BRAVE_API_KEY: 'saved-key' }, enabled: true },
+				},
+			} as any,
+		);
+		expect(configs.search.env?.BRAVE_API_KEY).toBe('saved-key');
 	});
 });
 
@@ -361,10 +495,10 @@ describe('replaceAvailableTools', () => {
 });
 
 describe('findPackDir', () => {
-	it('finds builtin researcher pack', () => {
-		const dir = findPackDir('researcher');
+	it('finds builtin starter pack', () => {
+		const dir = findPackDir('starter');
 		expect(dir).not.toBeNull();
-		expect(dir).toContain('packs/researcher');
+		expect(dir).toContain('packs/starter');
 	});
 
 	it('returns null for unknown pack', () => {
@@ -374,36 +508,25 @@ describe('findPackDir', () => {
 });
 
 describe('loadPack', () => {
-	it('loads the builtin researcher pack', () => {
-		const dir = findPackDir('researcher');
-		if (!dir) throw new Error('researcher pack not found');
+	it('loads the builtin starter pack', async () => {
+		const dir = findPackDir('starter');
+		if (!dir) throw new Error('starter pack not found');
 
-		const loaded = loadPack(dir, {} as any);
-		expect(loaded.manifest.name).toBe('researcher');
-		expect(loaded.systemPrompt).toContain('research agent');
+		const loaded = await loadPack(dir, {} as any);
+		expect(loaded.manifest.name).toBe('starter');
 		expect(loaded.systemPrompt).toContain('{{AVAILABLE_TOOLS}}');
-		expect(Object.keys(loaded.personas)).toContain('deep-research');
-		expect(Object.keys(loaded.personas)).toContain('quick-lookup');
-		expect(loaded.skills.length).toBeGreaterThanOrEqual(3);
-		expect(loaded.asToolPack.name).toBe('researcher');
-		expect(loaded.curation).toBeDefined();
-		expect(loaded.curation?.summarize).toBeTruthy();
-		expect(loaded.curation?.export).toBeTruthy();
-	});
-
-	it('loads the builtin explorer pack with curation', () => {
-		const dir = findPackDir('explorer');
-		if (!dir) throw new Error('explorer pack not found');
-
-		const loaded = loadPack(dir, {} as any);
-		expect(loaded.manifest.name).toBe('explorer');
-		expect(loaded.curation).toBeDefined();
-		expect(loaded.curation?.summarize).toBeTruthy();
-		expect(loaded.curation?.export).toBeTruthy();
-		expect(Object.keys(loaded.personas)).toContain('researcher');
-		expect(Object.keys(loaded.personas)).toContain('advisor');
-		expect(loaded.skills.map((s) => s.name)).toContain('deep-dive');
-		expect(loaded.skills.map((s) => s.name)).toContain('compare');
+		const mcpServerNames = Object.keys(
+			(loaded.manifest as any).mcpServers || {},
+		);
+		expect(mcpServerNames).toContain('memory');
+		expect(mcpServerNames).toContain('brave-search');
+		expect(mcpServerNames).toContain('firecrawl');
+		expect((loaded.manifest as any).mcpServers['brave-search'].required).toBe(
+			false,
+		);
+		expect((loaded.manifest as any).mcpServers['firecrawl'].required).toBe(
+			false,
+		);
 	});
 });
 
@@ -558,5 +681,162 @@ describe('replaceCurationPlaceholders', () => {
 			sourceCount: 0,
 		});
 		expect(result).toBe('No placeholders here');
+	});
+});
+
+describe('readCommands', () => {
+	it('reads commands from commands/ map in manifest', () => {
+		const dir = join(TMP, 'cmds');
+		writePack(
+			dir,
+			{
+				name: 'cmd-pack',
+				version: '0.1.0',
+				description: 'Pack with commands',
+				prompt: 'prompt.md',
+				commands: {
+					'analyze': 'commands/analyze.md',
+				},
+			},
+			{
+				'prompt.md': 'Test',
+				'commands/analyze.md': `---
+name: analyze
+description: Analyze something
+usage: <topic>
+result: trigger-agent
+---
+
+Analyze $ARGUMENTS deeply.
+`,
+			},
+		);
+
+		const commands = readCommands(dir, readPackManifest(dir));
+		expect(commands).toHaveLength(1);
+		expect(commands[0].name).toBe('analyze');
+		expect(commands[0].description).toBe('Analyze something');
+		expect(commands[0].usage).toBe('<topic>');
+	});
+
+	it('returns empty array when no commands', () => {
+		const dir = join(TMP, 'no-cmds');
+		writePack(dir, { name: 'nocmd', version: '0.1.0', description: 'No cmds', prompt: 'prompt.md' }, { 'prompt.md': 'Test' });
+		const commands = readCommands(dir, readPackManifest(dir));
+		expect(commands).toEqual([]);
+	});
+
+	it('throws when command name mismatches key', () => {
+		const dir = join(TMP, 'cmd-mismatch');
+		writePack(
+			dir,
+			{
+				name: 'mismatch',
+				version: '0.1.0',
+				description: 'Mismatch',
+				prompt: 'prompt.md',
+				commands: { 'analyze': 'commands/analyze.md' },
+			},
+			{
+				'prompt.md': 'Test',
+				'commands/analyze.md': `---
+name: wrong-name
+description: Wrong name
+---
+
+Oops.
+`,
+			},
+		);
+
+		expect(() => readCommands(dir, readPackManifest(dir))).toThrow(/name="wrong-name".*"analyze"/);
+	});
+
+	it('throws when command file missing', () => {
+		const dir = join(TMP, 'cmd-missing');
+		writePack(
+			dir,
+			{
+				name: 'missing',
+				version: '0.1.0',
+				description: 'Missing',
+				prompt: 'prompt.md',
+				commands: { 'analyze': 'commands/analyze.md' },
+			},
+			{ 'prompt.md': 'Test' },
+		);
+
+		expect(() => readCommands(dir, readPackManifest(dir))).toThrow(/does not exist/);
+	});
+
+	it('creates trigger-agent handler when result: trigger-agent', async () => {
+		const dir = join(TMP, 'cmd-trigger');
+		writePack(
+			dir,
+			{
+				name: 'trig',
+				version: '0.1.0',
+				description: 'Trigger',
+				prompt: 'prompt.md',
+				commands: { 'dive': 'commands/dive.md' },
+			},
+			{
+				'prompt.md': 'Test',
+				'commands/dive.md': `---
+name: dive
+description: Deep dive
+result: trigger-agent
+---
+
+Dive into $ARGUMENTS now.
+`,
+			},
+		);
+
+		const commands = readCommands(dir, readPackManifest(dir));
+		const result = await commands[0].handler!({
+			args: 'quantum computing',
+			agent: { messages: [], id: 'test', name: 'test-agent' },
+			config: {} as any,
+		} as any);
+
+		expect(result.type).toBe('trigger-agent');
+		if (result.type === 'trigger-agent') {
+			expect(result.content).toContain('Running dive');
+		}
+	});
+
+	it('creates message handler when result: message or default', async () => {
+		const dir = join(TMP, 'cmd-msg');
+		writePack(
+			dir,
+			{
+				name: 'msg',
+				version: '0.1.0',
+				description: 'Msg',
+				prompt: 'prompt.md',
+				commands: { 'info': 'commands/info.md' },
+			},
+			{
+				'prompt.md': 'Test',
+				'commands/info.md': `---
+name: info
+description: Show info
+---
+
+Info about $ARGUMENTS.
+`,
+			},
+		);
+
+		const commands = readCommands(dir, readPackManifest(dir));
+		const result = await commands[0].handler!({
+			args: 'test-topic',
+			agent: { messages: [], id: 'test', name: 'test-agent' },
+			config: {} as any,
+		} as any);
+
+		expect(result.type).toBe('message');
+		expect((result as any).content).toContain('test-topic');
 	});
 });

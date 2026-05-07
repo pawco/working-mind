@@ -1,7 +1,7 @@
 import * as clack from '@clack/prompts';
 import pc from 'picocolors';
 import { loadUserConfig, type UserConfig, writeUserConfig } from './config.js';
-import { storeKey } from './keychain.js';
+import { getConfigDir } from './paths.js';
 import { getMergedModels } from './sdk/model-discovery.js';
 import {
 	getOtherProviders,
@@ -10,6 +10,9 @@ import {
 	type ProviderEntry,
 } from './sdk/provider-registry.js';
 import {
+	cacheApiKey,
+	type LocalFastProbeResult,
+	probeLocalFast,
 	type OllamaModelInfo,
 	probeOllama,
 	resolveApiKey,
@@ -19,9 +22,9 @@ import {
 export async function runWizard(): Promise<UserConfig | null> {
 	const config = loadUserConfig();
 
-	clack.intro(pc.bgCyan(pc.black(' OpenExplorer — First Run Setup ')));
+	clack.intro(pc.bgCyan(pc.black(' Working Mind -- First Run Setup ')));
 
-	const ollama = await probeOllama();
+	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
 
 	const primaryProviders = getPrimaryProviders();
 	const otherProviders = getOtherProviders();
@@ -29,17 +32,33 @@ export async function runWizard(): Promise<UserConfig | null> {
 	const providerOptions: { value: string; label: string; hint: string }[] = [];
 
 	for (const p of primaryProviders) {
-		const hasKey = !p.needsApiKey ? ollama.running : !!resolveApiKey(p);
-		const suffix = hasKey ? pc.green(' ✓ key detected') : '';
-		const hint = !p.needsApiKey
-			? ollama.running
-				? `${ollama.models.length} models pulled`
-				: 'Not running'
-			: p.free === true
-				? 'Free'
-				: p.free === 'limited'
-					? 'Free tier'
-					: 'Paid';
+		const isLocalFast = p.id === 'local-fast';
+		const isOllama = p.id === 'ollama';
+
+		let hasKey: boolean;
+		if (isLocalFast) {
+			hasKey = localFast.running;
+		} else if (isOllama) {
+			hasKey = ollama.running;
+		} else {
+			hasKey = !!resolveApiKey(p, config);
+		}
+
+		const suffix = hasKey ? pc.green(' \u2713 available') : '';
+
+		let hint: string;
+		if (isLocalFast) {
+			hint = localFast.running ? `Running (port ${localFast.port})` : 'Not running';
+		} else if (isOllama) {
+			hint = ollama.running ? `${ollama.models.length} models pulled` : 'Not running';
+		} else if (p.free === true) {
+			hint = 'Free';
+		} else if (p.free === 'limited') {
+			hint = 'Free tier';
+		} else {
+			hint = 'Paid';
+		}
+
 		providerOptions.push({ value: p.id, label: p.displayName + suffix, hint });
 	}
 
@@ -63,8 +82,8 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 	if (selectedProviderId === '__more') {
 		const moreOptions = otherProviders.map((p) => {
-			const hasKey = !!resolveApiKey(p);
-			const suffix = hasKey ? pc.green(' ✓ key detected') : '';
+			const hasKey = !!resolveApiKey(p, config);
+			const suffix = hasKey ? pc.green(' \u2713 key detected') : '';
 			const hint =
 				p.free === true ? 'Free' : p.free === 'limited' ? 'Free tier' : 'Paid';
 			return { value: p.id, label: p.displayName + suffix, hint };
@@ -88,7 +107,25 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 	let selectedModelId: string;
 
-	if (!provider.needsApiKey && ollama.running) {
+	if (provider.id === 'local-fast') {
+		const models = localFast.running
+			? await discoverLocalFastModels(localFast, provider)
+			: provider.models;
+		const modelOptions = models.slice(0, 15).map((m) => ({
+			value: m.id,
+			label: m.displayName,
+			hint: `Free (local) \u00b7 ${formatCtx(m.contextWindow)} ctx`,
+		}));
+		const modelChoice = await clack.select({
+			message: `Pick a model (${provider.displayName}):`,
+			options: modelOptions,
+		});
+		if (clack.isCancel(modelChoice)) {
+			clack.cancel('Setup cancelled');
+			return null;
+		}
+		selectedModelId = modelChoice as string;
+	} else if (!provider.needsApiKey && ollama.running) {
 		const ollamaResult = await selectOllamaModel(ollama.models, provider);
 		if (!ollamaResult) return null;
 		selectedModelId = ollamaResult;
@@ -98,10 +135,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 				m.inputPricePer1M === 0
 					? 'Free (local)'
 					: `$${m.inputPricePer1M}/$${m.outputPricePer1M} per 1M`;
-			const ctx =
-				m.contextWindow >= 1000000
-					? `${(m.contextWindow / 1000000).toFixed(1)}M`
-					: `${(m.contextWindow / 1000).toFixed(0)}K`;
+			const ctx = formatCtx(m.contextWindow);
 			const features =
 				[
 					m.supportsReasoning ? 'thinking' : '',
@@ -112,7 +146,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 			return {
 				value: m.id,
 				label: m.displayName,
-				hint: `${price} · ${ctx} ctx · ${features}`,
+				hint: `${price} \u00b7 ${ctx} ctx \u00b7 ${features}`,
 			};
 		});
 
@@ -150,7 +184,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 		if (!apiKey) {
 			const keyInput = await clack.password({
 				message: `Enter your ${provider.displayName} API key:`,
-				mask: '•',
+				mask: '\u2022',
 			});
 			if (clack.isCancel(keyInput)) {
 				clack.cancel('Setup cancelled');
@@ -159,23 +193,15 @@ export async function runWizard(): Promise<UserConfig | null> {
 			apiKey = keyInput as string;
 		}
 
-		const keytarOk = await storeKey(provider.id, apiKey);
-		if (keytarOk) {
-			clack.log.success('API key saved to OS keychain');
-		} else {
-			const envVar = provider.envVar;
+		if (apiKey) cacheApiKey(provider.id, apiKey);
+		if (provider.envVar) {
 			clack.log.step(
-				`Add to your shell profile: ${pc.cyan(`export ${envVar}=***`)}`,
+				`Add to your shell profile: ${pc.cyan(`export ${provider.envVar}=***`)}`,
 			);
 		}
 	}
 
-	const fullModelId = !provider.needsApiKey
-		? `${provider.id}/${selectedModelId}`
-		: provider.models.some((m) => m.id === selectedModelId) &&
-				provider.modelIdFormat === 'provider-prefix'
-			? `${provider.id}/${selectedModelId}`
-			: selectedModelId;
+	const fullModelId = `${provider.id}/${selectedModelId}`;
 
 	config.defaultModel = fullModelId;
 
@@ -185,7 +211,11 @@ export async function runWizard(): Promise<UserConfig | null> {
 			apiKey: `env:${provider.envVar}`,
 			baseUrl: provider.baseUrl,
 		};
-	} else if (!provider.needsApiKey) {
+	} else if (provider.id === 'local-fast') {
+		config.providers[provider.id] = {
+			baseUrl: localFast.running ? localFast.baseUrl : provider.baseUrl,
+		};
+	} else if (provider.id === 'ollama') {
 		config.providers[provider.id] = {
 			baseUrl: ollama.running ? 'http://localhost:11434/v1' : provider.baseUrl,
 		};
@@ -193,13 +223,19 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 	writeUserConfig(config);
 	clack.log.success(
-		`Config written to ${pc.dim('~/.openexplorer/config.jsonc')}`,
+		`Config written to ${pc.dim(getConfigDir() + '/config.jsonc')}`,
 	);
 
-	if (!provider.needsApiKey) {
+	if (provider.id === 'local-fast') {
+		if (localFast.running) {
+			clack.log.success(`Using Local Fast: ${pc.cyan(selectedModelId)} on port ${localFast.port}`);
+		} else {
+			clack.log.warn('Local Fast not running. Start it: wmind-serve start');
+		}
+	} else if (!provider.needsApiKey) {
 		const resolved = resolveOllamaModelName(selectedModelId, ollama.models);
 		if (resolved !== selectedModelId) {
-			clack.log.step(`Resolved model: ${selectedModelId} → ${resolved}`);
+			clack.log.step(`Resolved model: ${selectedModelId} \u2192 ${resolved}`);
 		}
 		clack.log.success(`Using local model: ${pc.cyan(resolved)}`);
 	} else if (provider.canValidate) {
@@ -218,7 +254,7 @@ export async function runWizard(): Promise<UserConfig | null> {
 				s.stop('Connection validated');
 			} else {
 				s.stop(
-					`Could not validate — ${testRes.status} (key may still work for chat)`,
+					`Could not validate \u2014 ${testRes.status} (key may still work for chat)`,
 				);
 			}
 		} catch {
@@ -228,10 +264,40 @@ export async function runWizard(): Promise<UserConfig | null> {
 
 	clack.outro(
 		pc.bgGreen(pc.black(` You're all set! `)) +
-			`\n\n  ${pc.cyan('openexplorer')}                          → Start interactive session\n  ${pc.cyan('openexplorer --pack elgap')}             → With ElGap tools\n`,
+			`\n\n  ${pc.cyan('wmind')}                              \u2192 Start interactive session\n  ${pc.cyan('wmind --pack starter')}               \u2192 With starter tools\n`,
 	);
 
 	return config;
+}
+
+async function discoverLocalFastModels(
+	localFast: LocalFastProbeResult,
+	provider: ProviderEntry,
+): Promise<{ id: string; displayName: string; contextWindow: number }[]> {
+	try {
+		const res = await fetch(`${localFast.baseUrl}/models`, {
+			signal: AbortSignal.timeout(3000),
+		});
+		if (!res.ok) return provider.models;
+		const data = await res.json();
+		const remoteIds: string[] = data?.data?.map((m: any) => m.id) ?? [];
+		const curated = provider.models;
+		const extra = remoteIds
+			.filter((id) => !curated.some((m) => m.id === id))
+			.map((id) => ({
+				id,
+				displayName: id,
+				contextWindow: 131000,
+			}));
+		return [...curated, ...extra];
+	} catch {
+		return provider.models;
+	}
+}
+
+function formatCtx(ctx: number): string {
+	if (ctx >= 1_000_000) return `${(ctx / 1_000_000).toFixed(1)}M`;
+	return `${(ctx / 1000).toFixed(0)}K`;
 }
 
 async function selectOllamaModel(
@@ -249,7 +315,7 @@ async function selectOllamaModel(
 			return {
 				value: m.name,
 				label: m.name,
-				hint: `${params} · ${sizeGB}GB · ${m.family} · ${quant}`,
+				hint: `${params} \u00b7 ${sizeGB}GB \u00b7 ${m.family} \u00b7 ${quant}`,
 			};
 		});
 
@@ -272,7 +338,7 @@ async function selectOllamaModel(
 			? [
 					{
 						value: '__sep',
-						label: pc.dim('── Also available to pull ──'),
+						label: pc.dim('\u2500\u2500 Also available to pull \u2500\u2500'),
 						hint: '',
 					},
 					...curatedOptions,
@@ -299,27 +365,42 @@ async function selectOllamaModel(
 
 export async function listProviders(): Promise<void> {
 	const config = loadUserConfig();
-	const ollama = await probeOllama();
+	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
 
 	console.log(pc.bold('\nAvailable Providers:\n'));
 
 	for (const provider of PROVIDERS) {
-		const hasKey = !provider.needsApiKey
-			? ollama.running
-			: !!resolveApiKey(provider, config);
-		const icon = hasKey ? pc.green('✓') : pc.red('✗');
+		const isLocalFast = provider.id === 'local-fast';
+		const isOllama = provider.id === 'ollama';
+
+		let hasKey: boolean;
+		let statusLabel: string;
+
+		if (isLocalFast) {
+			hasKey = localFast.running;
+			statusLabel = localFast.running
+				? pc.dim(` (running, port ${localFast.port})`)
+				: pc.dim(' (not running)');
+		} else if (isOllama) {
+			hasKey = ollama.running;
+			statusLabel =
+				!provider.needsApiKey && ollama.running
+					? pc.dim(` (running, ${ollama.models.length} models pulled)`)
+					: '';
+		} else {
+			hasKey = !!resolveApiKey(provider, config);
+			statusLabel = '';
+		}
+
+		const icon = hasKey ? pc.green('\u2713') : pc.red('\u2717');
 		const freeLabel =
 			provider.free === true
 				? ' [FREE]'
 				: provider.free === 'limited'
 					? ' [Free tier]'
 					: '';
-		const localLabel =
-			!provider.needsApiKey && ollama.running
-				? pc.dim(` (running, ${ollama.models.length} models pulled)`)
-				: '';
 		console.log(
-			`  ${icon} ${pc.bold(provider.displayName)}${freeLabel}${localLabel}`,
+			`  ${icon} ${pc.bold(provider.displayName)}${freeLabel}${statusLabel}`,
 		);
 		console.log(`    ${pc.dim(`Base: ${provider.baseUrl}`)}`);
 		console.log(`    ${pc.dim(`Env:  ${provider.envVar || 'none'}`)}`);
@@ -329,7 +410,7 @@ export async function listProviders(): Promise<void> {
 
 export async function listModels(providerId?: string): Promise<void> {
 	const config = loadUserConfig();
-	const ollama = await probeOllama();
+	const [ollama, localFast] = await Promise.all([probeOllama(), probeLocalFast()]);
 
 	if (providerId) {
 		const provider = PROVIDERS.find((p) => p.id === providerId);
@@ -337,7 +418,9 @@ export async function listModels(providerId?: string): Promise<void> {
 			console.error(pc.red(`Unknown provider: ${providerId}`));
 			return;
 		}
-		if (!provider.needsApiKey) {
+		if (provider.id === 'local-fast') {
+			printLocalFastModels(localFast, provider);
+		} else if (!provider.needsApiKey) {
 			printLocalModels(ollama, provider);
 		} else {
 			await printProviderModels(provider, config);
@@ -346,21 +429,50 @@ export async function listModels(providerId?: string): Promise<void> {
 	}
 
 	const available = PROVIDERS.filter((p) =>
-		!p.needsApiKey ? ollama.running : !!resolveApiKey(p, config),
+		p.id === 'local-fast'
+			? localFast.running
+			: !p.needsApiKey
+				? ollama.running
+				: !!resolveApiKey(p, config),
 	);
 	if (available.length === 0) {
 		console.log(
-			pc.dim('No providers configured. Run: openexplorer --configure'),
+			pc.dim('No providers configured. Run: wmind --configure'),
 		);
 		return;
 	}
 
 	for (const provider of available) {
-		if (!provider.needsApiKey) {
+		if (provider.id === 'local-fast') {
+			printLocalFastModels(localFast, provider);
+		} else if (!provider.needsApiKey) {
 			printLocalModels(ollama, provider);
 		} else {
 			await printProviderModels(provider, config);
 		}
+	}
+}
+
+function printLocalFastModels(
+	localFast: LocalFastProbeResult,
+	provider: ProviderEntry,
+): void {
+	console.log(pc.bold(`\n${provider.displayName}:\n`));
+
+	if (!localFast.running) {
+		console.log(pc.dim('  Not running. Start it: wmind-serve start'));
+		return;
+	}
+
+	for (const m of provider.models) {
+		const ctx = formatCtx(m.contextWindow);
+		const features = [
+			m.supportsReasoning ? pc.cyan('think') : '',
+			m.supportsToolCalling ? pc.green('tools') : '',
+		].filter(Boolean).join(' ');
+		console.log(
+			`  ${pc.bold(m.id.padEnd(40))} Free (local)  ${ctx.padEnd(8)} ${features}`,
+		);
 	}
 }
 
@@ -400,7 +512,7 @@ function printLocalModels(
 	});
 
 	if (curatedNotLocal.length > 0) {
-		console.log(pc.dim(`\n  ── Available to pull ──`));
+		console.log(pc.dim(`\n  \u2500\u2500 Available to pull \u2500\u2500`));
 		for (const m of curatedNotLocal) {
 			console.log(
 				`  ${pc.dim(m.id.padEnd(35))} ${pc.dim(`ollama pull ${m.id}`)}`,
@@ -409,23 +521,25 @@ function printLocalModels(
 	}
 }
 
-async function printProviderModels(provider: ProviderEntry, config?: UserConfig): Promise<void> {
+async function printProviderModels(
+	provider: ProviderEntry,
+	config?: UserConfig,
+): Promise<void> {
 	console.log(pc.bold(`\n${provider.displayName}:\n`));
 	const curatedIds = new Set(provider.models.map((m) => m.id));
 	const models = await getMergedModels(provider, config);
 	const remoteCount = models.length - curatedIds.size;
 	if (remoteCount > 0) {
-		console.log(pc.dim(`  (${models.length} models, ${remoteCount} discovered remotely)`));
+		console.log(
+			pc.dim(`  (${models.length} models, ${remoteCount} discovered remotely)`),
+		);
 	}
 	for (const m of models) {
 		const price =
 			m.inputPricePer1M === 0
 				? 'Free'
 				: `$${m.inputPricePer1M}/$${m.outputPricePer1M}`;
-		const ctx =
-			m.contextWindow >= 1000000
-				? `${(m.contextWindow / 1000000).toFixed(1)}M`
-				: `${(m.contextWindow / 1000).toFixed(0)}K`;
+		const ctx = formatCtx(m.contextWindow);
 		const badges = [
 			m.supportsReasoning ? pc.cyan('think') : '',
 			m.supportsToolCalling ? pc.green('tools') : '',

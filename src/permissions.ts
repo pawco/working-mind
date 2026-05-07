@@ -24,7 +24,7 @@ export function getPermissionConfig(userConfig?: UserConfig): PermissionConfig {
 }
 
 export function shouldConfirm(tool: ToolDef, userConfig?: UserConfig): boolean {
-	if (tool.mcpServer === 'memory') return false;
+	if (tool.origin === 'mcp') return false;
 	const config = getPermissionConfig(userConfig);
 	if (tool.destructive) return config.destructive === 'ask';
 	if (tool.longRunning) return config.longRunning === 'ask';
@@ -35,7 +35,7 @@ export function isDenied(
 	tool: ToolDef,
 	config: PermissionConfig = DEFAULT_PERMISSIONS,
 ): boolean {
-	if (tool.mcpServer === 'memory') return false;
+	if (tool.origin === 'mcp') return false;
 	if (tool.destructive) return config.destructive === 'deny';
 	if (tool.longRunning) return config.longRunning === 'deny';
 	return false;

@@ -1,0 +1,77 @@
+{
+	"name": "starter",
+	"version": "0.1.0",
+	"description": "Free starter pack -- chat with persistent memory, web search and scraping (with API keys), summarize and export your sessions. Upgrade to domain packs for structured research and curation brains.",
+	"author": "Working Mind",
+	"license": "MIT",
+	"private": false,
+	"wmindMinVersion": "0.0.1",
+
+	"prompt": "prompt.md",
+
+	"mcpServers": {
+		"memory": {
+			"package": "@modelcontextprotocol/server-memory",
+			"required": false,
+			"capability": "persistent knowledge graph memory",
+			"env": {
+				"MEMORY_FILE_PATH": {
+					"setting": "MEMORY_FILE_PATH",
+					"required": false,
+					"label": "Memory storage path",
+					"hint": "Defaults to ~/.wmind/memory.jsonl"
+				}
+			}
+		},
+		"brave-search": {
+			"package": "@brave/brave-search-mcp-server",
+			"required": false,
+			"capability": "web search for fact-checking and current information",
+			"env": {
+				"BRAVE_API_KEY": {
+					"setting": "BRAVE_API_KEY",
+					"sensitive": true,
+					"required": false,
+					"label": "Brave Search API Key",
+					"hint": "Get one at https://brave.com/search/api/"
+				}
+			}
+		},
+		"firecrawl": {
+			"package": "firecrawl-mcp",
+			"required": false,
+			"capability": "web scraping and content extraction from URLs",
+			"env": {
+				"FIRECRAWL_API_KEY": {
+					"setting": "FIRECRAWL_API_KEY",
+					"sensitive": true,
+					"required": false,
+					"label": "Firecrawl API Key",
+					"hint": "Get one at https://firecrawl.dev/"
+				}
+			}
+		}
+	},
+
+	"curation": {
+		"summarize": "curation/summarize.md",
+		"export": "curation/export.md"
+	},
+
+	"settings": [
+		{
+			"name": "BRAVE_API_KEY",
+			"description": "Brave Search API key -- enables web search for fact-checking",
+			"envVar": "BRAVE_API_KEY",
+			"sensitive": true,
+			"required": false
+		},
+		{
+			"name": "FIRECRAWL_API_KEY",
+			"description": "Firecrawl API key -- enables web scraping from URLs",
+			"envVar": "FIRECRAWL_API_KEY",
+			"sensitive": true,
+			"required": false
+		}
+	]
+}

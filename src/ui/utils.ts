@@ -13,12 +13,12 @@ export const SPINNER_FRAMES = [
 	'⠏',
 ];
 
-export const INPUT_H = 3;
-export const INPUT_MAX_H = 6;
+export const INPUT_H = 2;
+export const INPUT_MAX_H = 2;
 export const TOOL_PREVIEW_LINES = 5;
 export const TOOL_COLLAPSE_THRESHOLD = 20;
-export const THINKING_PREVIEW_LINES = 3;
-export const THINKING_COLLAPSE_THRESHOLD = 15;
+export const THINKING_PREVIEW_LINES = 12;
+export const THINKING_COLLAPSE_THRESHOLD = 30;
 export const INPUT_BG = '#131820';
 export const INPUT_ACCENT = '#56b6c2';
 export const INPUT_CONFIRM_BG = '#4a2800';

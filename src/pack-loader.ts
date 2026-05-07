@@ -1,58 +1,30 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { ZodError } from 'zod';
 import pc from 'picocolors';
-import type { McpEnvVarDef, McpServerConfig, UserConfig } from './config.js';
+import { parseCommandMd } from './command-loader.js';
+import type { McpServerConfig, UserConfig } from './config.js';
 import type { McpRegistry } from './mcp/registry.js';
-import { getBuiltinPacksDir, getStorePath } from './paths.js';
-import type { PersonaDef, SkillDef, ToolPack } from './sdk/tool.js';
+import { getBuiltinPacksDir, getPacksDir, getStorePath } from './paths.js';
+import {
+	type CurationDef,
+	type McpEnvVarDef,
+	type PackManifest,
+	formatZodError,
+	packManifestSchema,
+} from './schemas.js';
+import type {
+	PersonaDef,
+	SkillDef,
+	SlashCommand,
+	ToolPack,
+} from './sdk/tool.js';
 import { parseSkillMd } from './skill-loader.js';
 import type { SkillRegistry } from './skill-registry.js';
 
 const BUILTIN_PACKS_DIR = getBuiltinPacksDir();
 
-export interface CurationDef {
-	summarize?: string;
-	export?: string;
-}
-
-export interface PackManifest {
-	name: string;
-	version: string;
-	description: string;
-	author?: string;
-	license?: string;
-	private?: boolean;
-	openexplorerMinVersion?: string;
-	prompt: string;
-	personas?: Record<string, { prompt: string; toolFilter?: any }>;
-	mcpServers?: Record<
-		string,
-		{
-			package?: string;
-			command?: string[];
-			required?: boolean;
-			capability?: string;
-			env?: Record<
-				string,
-				{
-					setting: string;
-					sensitive?: boolean;
-					required?: boolean;
-					label?: string;
-					hint?: string;
-				}
-			>;
-		}
-	>;
-	settings?: {
-		name: string;
-		description: string;
-		envVar: string;
-		sensitive?: boolean;
-		required?: boolean;
-	}[];
-	curation?: CurationDef;
-}
+export type { CurationDef, PackManifest };
 
 export interface LoadedPack {
 	manifest: PackManifest;
@@ -60,16 +32,13 @@ export interface LoadedPack {
 	systemPrompt: string;
 	personas: Record<string, PersonaDef>;
 	skills: SkillDef[];
+	commands: SlashCommand[];
 	mcpServerConfigs: Record<string, McpServerConfig>;
 	curation: { summarize?: string; export?: string };
 	asToolPack: ToolPack;
 }
 
-const USER_PACKS_DIR = join(
-	process.env.HOME || '/tmp',
-	'.openexplorer',
-	'packs',
-);
+const USER_PACKS_DIR = getPacksDir();
 
 export function findPackDir(name: string): string | null {
 	const builtin = join(BUILTIN_PACKS_DIR, name);
@@ -105,56 +74,32 @@ export function findPackDir(name: string): string | null {
 export function readPackManifest(packDir: string): PackManifest {
 	const manifestPath = join(packDir, 'pack.json');
 	const raw = readFileSync(manifestPath, 'utf-8');
-	const manifest: PackManifest = JSON.parse(raw);
 
-	if (!manifest.name || !manifest.version || !manifest.description) {
-		throw new Error(
-			`pack.json missing required fields: name, version, description`,
-		);
+	let manifest: PackManifest;
+	try {
+		manifest = packManifestSchema.parse(JSON.parse(raw));
+	} catch (err) {
+		if (err instanceof ZodError) {
+			throw new Error(formatZodError(`Invalid pack.json (${packDir})`, err));
+		}
+		throw new Error(`Failed to parse pack.json in ${packDir}: ${err instanceof Error ? err.message : String(err)}`);
 	}
 
-	if (manifest.prompt && !existsSync(join(packDir, manifest.prompt))) {
+	if (!existsSync(join(packDir, manifest.prompt))) {
 		throw new Error(
 			`pack.json references prompt file "${manifest.prompt}" which does not exist`,
 		);
 	}
 
-	validateNoRequiredMcp(manifest);
-	validateNoRequiredSettings(manifest);
-	validateName(manifest.name);
 	validateCuration(manifest, packDir);
 
 	return manifest;
 }
 
-function validateName(name: string): void {
-	if (!/^[a-z][a-z0-9-]{2,29}$/.test(name)) {
-		throw new Error(
-			`Pack name "${name}" must be lowercase, start with a letter, 3-30 chars, hyphens allowed`,
-		);
-	}
+export function validateNoRequiredMcp(_manifest: PackManifest): void {
 }
 
-export function validateNoRequiredMcp(manifest: PackManifest): void {
-	for (const [serverName, server] of Object.entries(
-		manifest.mcpServers || {},
-	)) {
-		if (server.required === true) {
-			throw new Error(
-				`MCP server "${serverName}" has required: true. All MCP servers must be optional (required: false or omitted).`,
-			);
-		}
-	}
-}
-
-export function validateNoRequiredSettings(manifest: PackManifest): void {
-	for (const setting of manifest.settings || []) {
-		if (setting.required === true) {
-			throw new Error(
-				`Setting "${setting.name}" has required: true. All pack settings must be optional.`,
-			);
-		}
-	}
+export function validateNoRequiredSettings(_manifest: PackManifest): void {
 }
 
 export function readPromptFile(packDir: string, promptPath: string): string {
@@ -217,15 +162,50 @@ export function readSkills(packDir: string): SkillDef[] {
 	return skills;
 }
 
-export function buildMcpConfigs(
+export function readCommands(
+	packDir: string,
+	manifest: PackManifest,
+): SlashCommand[] {
+	const commands: SlashCommand[] = [];
+	if (!manifest.commands) return commands;
+
+	for (const [name, filePath] of Object.entries(manifest.commands)) {
+		const fullPath = join(packDir, filePath);
+		if (!existsSync(fullPath)) {
+			throw new Error(
+				`Command "${name}" references file "${filePath}" which does not exist`,
+			);
+		}
+		try {
+			const content = readFileSync(fullPath, 'utf-8');
+			const cmd = parseCommandMd(content, name, manifest.name);
+			if (cmd.name !== name) {
+				throw new Error(
+					`Command file "${filePath}" has name="${cmd.name}" but pack.json declares it as "${name}"`,
+				);
+			}
+			if (!/^[a-z][a-z0-9-]{1,29}$/.test(name)) {
+				throw new Error(
+					`Command name "${name}" must match ^[a-z][a-z0-9-]{1,29}$`,
+				);
+			}
+			commands.push(cmd);
+		} catch (err: any) {
+			throw new Error(`Failed to load command "${name}": ${err.message}`);
+		}
+	}
+
+	return commands;
+}
+
+export async function buildMcpConfigs(
 	manifest: PackManifest,
 	userConfig: UserConfig,
-): Record<string, McpServerConfig> {
+	packDir?: string,
+): Promise<Record<string, McpServerConfig>> {
 	const result: Record<string, McpServerConfig> = {};
 
 	for (const [name, server] of Object.entries(manifest.mcpServers || {})) {
-		if (userConfig.mcpServers?.[name]) continue;
-
 		const command = server.command
 			? server.command
 			: server.package
@@ -234,6 +214,7 @@ export function buildMcpConfigs(
 
 		if (!command) continue;
 
+		const saved = userConfig.mcpServers?.[name];
 		const env: Record<string, string> = {};
 		const requiredEnvVars: McpEnvVarDef[] = [];
 		let missingRequired = false;
@@ -251,21 +232,32 @@ export function buildMcpConfigs(
 			const envValue = process.env[envName];
 			if (envValue) {
 				env[envName] = envValue;
-			} else if (isRequired) {
-				missingRequired = true;
+			} else {
+				const savedEnvVal = saved?.env?.[envName];
+				if (savedEnvVal) {
+					env[envName] = savedEnvVal;
+				} else if (isRequired) {
+					missingRequired = true;
+				}
 			}
 		}
 
-		if (missingRequired) {
-			result[name] = {
-				type: 'local',
-				command,
-				env,
-				enabled: false,
-				requiredEnvVars:
-					requiredEnvVars.length > 0 ? requiredEnvVars : undefined,
-			};
-			continue;
+		const hasInputDirArg = command.some(
+			(a) => a === '$INPUT_DIR' || a.includes('$INPUT_DIR'),
+		);
+		if (hasInputDirArg && server.pathPrompt) {
+			const inputDirValue = process.env.INPUT_DIR;
+			if (inputDirValue) {
+				env.INPUT_DIR = inputDirValue;
+			} else {
+				requiredEnvVars.push({
+					name: 'INPUT_DIR',
+					label: server.pathPrompt,
+					required: true,
+					sensitive: false,
+				});
+				missingRequired = true;
+			}
 		}
 
 		if (name === 'memory' && !env.MEMORY_FILE_PATH) {
@@ -273,13 +265,29 @@ export function buildMcpConfigs(
 			env.MEMORY_FILE_PATH = getStorePath(activeStore);
 		}
 
-		result[name] = {
+		const packDefault: McpServerConfig = {
 			type: 'local',
 			command,
 			env,
-			enabled: true,
+			enabled: !missingRequired,
 			requiredEnvVars: requiredEnvVars.length > 0 ? requiredEnvVars : undefined,
+			packDir,
+			pathPrompt: server.pathPrompt,
 		};
+
+		if (saved) {
+			result[name] = {
+				...packDefault,
+				...saved,
+				command: saved.command || packDefault.command,
+				env: { ...(saved.env || {}), ...packDefault.env },
+				requiredEnvVars: packDefault.requiredEnvVars,
+				packDir,
+				pathPrompt: server.pathPrompt,
+			};
+		} else {
+			result[name] = packDefault;
+		}
 	}
 
 	return result;
@@ -379,22 +387,24 @@ export function replaceCurationPlaceholders(
 	return result;
 }
 
-export function loadPack(
+export async function loadPack(
 	packDir: string,
 	userConfig: UserConfig,
 	skillRegistry?: SkillRegistry,
-): LoadedPack {
+): Promise<LoadedPack> {
 	const manifest = readPackManifest(packDir);
 	const systemPrompt = manifest.prompt
 		? readPromptFile(packDir, manifest.prompt)
 		: '';
 	const personas = readPersonas(packDir, manifest.personas);
 	const skills = readSkills(packDir);
-	const mcpServerConfigs = buildMcpConfigs(manifest, userConfig);
+	const commands = readCommands(packDir, manifest);
+	const mcpServerConfigs = await buildMcpConfigs(manifest, userConfig, packDir);
 	const curation = readCurationPrompts(packDir, manifest.curation);
 
 	if (skillRegistry) {
 		for (const skill of skills) {
+			skill.packName = manifest.name;
 			skillRegistry.register(skill);
 		}
 	}
@@ -406,7 +416,10 @@ export function loadPack(
 		tools: [],
 		personas,
 		skills: Object.fromEntries(skills.map((s) => [s.name, s])),
+		commands,
 		curation,
+		mcpServers: manifest.mcpServers || undefined,
+		systemPrompt: systemPrompt || undefined,
 	};
 
 	return {
@@ -415,6 +428,7 @@ export function loadPack(
 		systemPrompt,
 		personas,
 		skills,
+		commands,
 		mcpServerConfigs,
 		curation,
 		asToolPack: toolPack,
@@ -466,11 +480,9 @@ export async function connectPackMcpServers(
 }
 
 function shortenError(msg: string): string {
-	if (msg.includes('Connection closed') || msg.includes('-32000'))
-		return 'server exited unexpectedly (missing API key or dependency?)';
 	if (msg.includes('ECONNREFUSED'))
 		return 'connection refused (is the server running?)';
-	if (msg.length > 120) return `${msg.slice(0, 120)}...`;
+	if (msg.length > 200) return `${msg.slice(0, 200)}...`;
 	return msg;
 }
 

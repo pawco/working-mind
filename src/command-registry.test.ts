@@ -14,6 +14,8 @@ const mockCtx = (overrides?: Partial<CommandContext>): CommandContext => ({
 		status: 'idle',
 		model: 'test',
 		activeSkills: new Set(),
+		currentTask: undefined,
+		packSystemPrompt: undefined,
 	},
 	config: {
 		model: 'test',
@@ -113,5 +115,66 @@ describe('CommandRegistry', () => {
 			mockCtx({ args: resolved?.args }),
 		);
 		expect(result).toEqual({ type: 'message', content: 'hello world' });
+	});
+
+	it('registers namespaced form when packName provided', () => {
+		const reg = new CommandRegistry();
+		reg.register(
+			{ name: 'analyze', description: 'Analyze', handler: () => ({ type: 'none' }) },
+			'marketing',
+		);
+		expect(reg.resolve('/analyze')).not.toBeNull();
+		expect(reg.resolve('/marketing:analyze')).not.toBeNull();
+	});
+
+	it('groups pack commands in help text', () => {
+		const reg = new CommandRegistry();
+		reg.register({
+			name: 'clear',
+			description: 'Clear history',
+			handler: () => ({ type: 'none' }),
+		});
+		reg.register(
+			{ name: 'analyze', description: 'Analyze competitors', handler: () => ({ type: 'none' }) },
+			'marketing',
+		);
+		const help = reg.getHelpText();
+		expect(help).toContain('Built-in:');
+		expect(help).toContain('marketing:');
+		expect(help).toContain('/analyze');
+	});
+
+	it('getPackCommands returns pack-grouped commands', () => {
+		const reg = new CommandRegistry();
+		reg.register(
+			{ name: 'dive', description: 'Deep dive', handler: () => ({ type: 'none' }) },
+			'explorer',
+		);
+		reg.register(
+			{ name: 'analyze', description: 'Analyze', handler: () => ({ type: 'none' }) },
+			'marketing',
+		);
+		const packCmds = reg.getPackCommands();
+		expect(packCmds.has('explorer')).toBe(true);
+		expect(packCmds.has('marketing')).toBe(true);
+		expect(packCmds.get('explorer')?.[0].name).toBe('dive');
+	});
+
+	it('resolves namespaced commands even when short form collides', () => {
+		const reg = new CommandRegistry();
+		reg.register(
+			{ name: 'analyze', description: 'Marketing analyze', handler: () => ({ type: 'none' }) },
+			'marketing',
+		);
+		reg.register(
+			{ name: 'analyze', description: 'Researcher analyze', handler: () => ({ type: 'none' }) },
+			'researcher',
+		);
+		expect(reg.resolve('/marketing:analyze')?.command.description).toBe(
+			'Marketing analyze',
+		);
+		expect(reg.resolve('/researcher:analyze')?.command.description).toBe(
+			'Researcher analyze',
+		);
 	});
 });

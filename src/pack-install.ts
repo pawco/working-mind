@@ -1,20 +1,26 @@
-import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
 	existsSync,
 	mkdirSync,
-	readFileSync,
 	readdirSync,
+	readFileSync,
 	rmSync,
 	symlinkSync,
 	unlinkSync,
 	writeFileSync,
 } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { readPackManifest, validateNoRequiredMcp, validateNoRequiredSettings } from './pack-loader.js';
+import {
+	readPackManifest,
+	type PackManifest,
+	validateNoRequiredMcp,
+	validateNoRequiredSettings,
+} from './pack-loader.js';
+import { getPacksDir } from './paths.js';
 
-const PACKS_DIR = join(homedir(), '.openexplorer', 'packs');
+const PACKS_DIR = getPacksDir();
 const MANIFEST_PATH = join(PACKS_DIR, 'manifest.json');
 
 interface InstalledPack {
@@ -24,20 +30,6 @@ interface InstalledPack {
 	installedAt: string;
 	sha256?: string;
 	linked?: boolean;
-}
-
-interface PackManifest {
-	name: string;
-	version: string;
-	description: string;
-	author?: string;
-	license?: string;
-	private?: boolean;
-	openexplorerMinVersion?: string;
-	prompt: string;
-	personas?: any;
-	mcpServers?: any;
-	settings?: any;
 }
 
 function loadManifest(): Record<string, InstalledPack> {
@@ -57,6 +49,12 @@ function saveManifest(manifest: Record<string, InstalledPack>): void {
 function validatePack(packDir: string): string[] {
 	const errors: string[] = [];
 
+	const rawPath = join(packDir, 'pack.json');
+	if (!existsSync(rawPath)) {
+		errors.push('pack.json not found');
+		return errors;
+	}
+
 	let manifest: PackManifest;
 	try {
 		manifest = readPackManifest(packDir);
@@ -65,30 +63,8 @@ function validatePack(packDir: string): string[] {
 		return errors;
 	}
 
-	try {
-		validateNoRequiredMcp(manifest as any);
-	} catch (err: any) {
-		errors.push(err.message);
-	}
-
-	try {
-		validateNoRequiredSettings(manifest as any);
-	} catch (err: any) {
-		errors.push(err.message);
-	}
-
-	if (!/^[a-z][a-z0-9-]{2,29}$/.test(manifest.name)) {
-		errors.push(`Invalid pack name: "${manifest.name}"`);
-	}
-
-	if (!/^\d+\.\d+\.\d+/.test(manifest.version)) {
-		errors.push(`Invalid version: "${manifest.version}"`);
-	}
-
 	const promptPath = join(packDir, manifest.prompt);
-	if (!existsSync(promptPath)) {
-		errors.push(`Prompt file "${manifest.prompt}" not found`);
-	} else {
+	if (existsSync(promptPath)) {
 		const promptSize = readFileSync(promptPath, 'utf-8').length;
 		if (promptSize > 10_000) {
 			errors.push(`Prompt file exceeds 10,000 chars (${promptSize})`);
@@ -97,9 +73,9 @@ function validatePack(packDir: string): string[] {
 
 	if (manifest.personas) {
 		for (const [name, def] of Object.entries(manifest.personas)) {
-			const personaPath = join(packDir, (def as any).prompt);
+			const personaPath = join(packDir, def.prompt);
 			if (!existsSync(personaPath)) {
-				errors.push(`Persona "${name}" file not found: ${(def as any).prompt}`);
+				errors.push(`Persona "${name}" file not found: ${def.prompt}`);
 			}
 		}
 	}
@@ -125,7 +101,10 @@ function computeDirectoryHash(dir: string): string {
 	return hash.digest('hex').slice(0, 16);
 }
 
-export function installPackFromGit(gitUrl: string, tag?: string): { name: string; errors: string[] } {
+export function installPackFromGit(
+	gitUrl: string,
+	tag?: string,
+): { name: string; errors: string[] } {
 	const tmpDir = join(tmpdir(), `oe-pack-install-${Date.now()}`);
 	mkdirSync(tmpDir, { recursive: true });
 
@@ -171,7 +150,10 @@ export function installPackFromGit(gitUrl: string, tag?: string): { name: string
 	return { name: packName, errors: [] };
 }
 
-export function linkPackFromLocal(localPath: string): { name: string; errors: string[] } {
+export function linkPackFromLocal(localPath: string): {
+	name: string;
+	errors: string[];
+} {
 	const resolved = resolve(localPath);
 	if (!existsSync(resolved)) {
 		return { name: '', errors: [`Path not found: ${resolved}`] };
@@ -226,7 +208,7 @@ export function removePack(name: string): { success: boolean; error?: string } {
 	const packDir = join(PACKS_DIR, name);
 	if (existsSync(packDir)) {
 		try {
-			const stat = readFileSync(linkPathIfExists(packDir), 'utf-8');
+			const _stat = readFileSync(linkPathIfExists(packDir), 'utf-8');
 			unlinkSync(packDir);
 		} catch {
 			rmSync(packDir, { recursive: true, force: true });
@@ -253,7 +235,10 @@ export function updatePack(name: string): { success: boolean; error?: string } {
 		return { success: false, error: `Pack "${name}" not installed` };
 	}
 	if (entry.linked) {
-		return { success: false, error: `Pack "${name}" is a local link — update the source directory directly` };
+		return {
+			success: false,
+			error: `Pack "${name}" is a local link — update the source directory directly`,
+		};
 	}
 	if (!entry.source.startsWith('http') && !entry.source.startsWith('git@')) {
 		return { success: false, error: `Pack "${name}" source is not a git URL` };

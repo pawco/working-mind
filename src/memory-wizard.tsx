@@ -1,7 +1,12 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Box, Text } from 'ink';
-import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
+import {
+	forwardRef,
+	createElement as h,
+	useCallback,
+	useImperativeHandle,
+	useState,
+} from 'react';
 import type { UserConfig } from './config.js';
 import type { McpRegistry } from './mcp/registry.js';
 import {
@@ -26,6 +31,7 @@ type MemoryWizardStep =
 
 export interface MemoryWizardHandle {
 	handleKey: (inputChar: string, key: any) => void;
+	handlePaste: (text: string) => void;
 }
 
 export interface MemoryWizardProps {
@@ -180,30 +186,47 @@ export const MemoryWizard = forwardRef<MemoryWizardHandle, MemoryWizardProps>(
 			[step, onDone, doSwitch],
 		);
 
-		useImperativeHandle(ref, () => ({ handleKey }), [handleKey]);
+		const handlePaste = useCallback(
+			(text: string) => {
+				const s = step;
+				if (s.id === 'store-list' && s.creating) {
+					setStep({ ...s, newName: s.newName + text });
+				}
+			},
+			[step],
+		);
+
+		useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [
+			handleKey,
+			handlePaste,
+		]);
 
 		const activeName = getActiveStoreName(getUserConfig());
 
-		return (
-			<Box
-				flexDirection="column"
-				flexGrow={1}
-				backgroundColor="#0a0a1a"
-				paddingX={2}
-				paddingY={1}
-				overflow="hidden"
-			>
-				{renderStep(step, activeName)}
-				<Box marginTop={1}>
-					<Text dimColor>
-						{step.id === 'store-list'
+		return h(
+			'box',
+			{
+				flexDirection: 'column',
+				flexGrow: 1,
+				backgroundColor: '#0a0a1a',
+				paddingX: 2,
+				paddingY: 1,
+				overflow: 'hidden',
+			},
+			renderStep(step, activeName),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', {
+					dimColor: true,
+					content:
+						step.id === 'store-list'
 							? step.creating
 								? 'Type name  Enter create  Esc cancel'
 								: 'Up/Down navigate  Enter select  Esc cancel'
-							: 'Enter/Esc continue'}
-					</Text>
-				</Box>
-			</Box>
+							: 'Enter/Esc continue',
+				}),
+			),
 		);
 	},
 );
@@ -214,106 +237,106 @@ function renderStep(
 ): React.ReactNode {
 	if (step.id === 'store-list') {
 		const stores = step.stores;
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Memory Stores
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Box flexDirection="column" marginTop={1}>
-					{stores.map((store, i) => {
-						const isActive = store.name === activeName;
-						const selected = step.cursor === i && !step.creating;
-						const marker = isActive ? '●' : '○';
-						return (
-							<Box key={store.name}>
-								{selected ? (
-									<Text color="cyan" bold>
-										{marker}{' '}
-									</Text>
-								) : (
-									<Text dimColor>{marker} </Text>
-								)}
-								<Text bold={selected} color={selected ? 'white' : 'gray'}>
-									{store.name}
-								</Text>
-								<Text dimColor>
-									{store.exists && store.entityCount > 0
-										? ` (${store.entityCount} entities, ${store.observationCount} obs)`
-										: store.exists
-											? ' (empty)'
-											: ' (new)'}
-								</Text>
-							</Box>
-						);
-					})}
-					{step.creating ? (
-						<Box>
-							<Text color="cyan" bold>
-								{'▸ '}{' '}
-							</Text>
-							<Text color="white">Create: </Text>
-							<Text color="cyan">{step.newName}</Text>
-							<Text dimColor>▍</Text>
-						</Box>
-					) : (
-						<Box>
-							{step.cursor === stores.length ? (
-								<Text color="cyan" bold>
-									{'▸ '}{' '}
-								</Text>
-							) : (
-								<Text dimColor>{'  '} </Text>
-							)}
-							<Text dimColor>[Create New Store]</Text>
-						</Box>
-					)}
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Memory Stores' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h(
+				'box',
+				{ flexDirection: 'column', marginTop: 1 },
+				stores.map((store, i) => {
+					const isActive = store.name === activeName;
+					const selected = step.cursor === i && !step.creating;
+					const marker = isActive ? '●' : '○';
+					return h(
+						'box',
+						{ key: store.name },
+						selected
+							? h('text', { fg: 'cyan', bold: true, content: `${marker} ` })
+							: h('text', { dimColor: true, content: `${marker} ` }),
+						h('text', {
+							bold: selected,
+							fg: selected ? 'white' : 'gray',
+							content: store.name,
+						}),
+						h('text', {
+							dimColor: true,
+							content:
+								store.exists && store.entityCount > 0
+									? ` (${store.entityCount} entities, ${store.observationCount} obs)`
+									: store.exists
+										? ' (empty)'
+										: ' (new)',
+						}),
+					);
+				}),
+				step.creating
+					? h(
+							'box',
+							null,
+							h('text', { fg: 'cyan', bold: true, content: '▸  ' }),
+							h('text', { fg: 'white', content: 'Create: ' }),
+							h('text', { fg: 'cyan', content: step.newName }),
+							h('text', { dimColor: true, content: '▍' }),
+						)
+					: h(
+							'box',
+							null,
+							step.cursor === stores.length
+								? h('text', { fg: 'cyan', bold: true, content: '▸  ' })
+								: h('text', { dimColor: true, content: '   ' }),
+							h('text', { dimColor: true, content: '[Create New Store]' }),
+						),
+			),
 		);
 	}
 
 	if (step.id === 'switching') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Switching Store
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text color="yellow">Switching to '{step.storeName}'...</Text>
-				<Text dimColor>Reconnecting memory MCP server</Text>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Switching Store' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', {
+				fg: 'yellow',
+				content: `Switching to '${step.storeName}'...`,
+			}),
+			h('text', { dimColor: true, content: 'Reconnecting memory MCP server' }),
 		);
 	}
 
 	if (step.id === 'switched') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="green">
-					Store Switched
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text color="green">Now using '{step.storeName}'</Text>
-				<Text dimColor>{step.entityCount} entities in this store</Text>
-				<Box marginTop={1}>
-					<Text dimColor>Press Enter to continue</Text>
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'green', content: 'Store Switched' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', { fg: 'green', content: `Now using '${step.storeName}'` }),
+			h('text', {
+				dimColor: true,
+				content: `${step.entityCount} entities in this store`,
+			}),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { dimColor: true, content: 'Press Enter to continue' }),
+			),
 		);
 	}
 
 	if (step.id === 'error') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="red">
-					Switch Failed
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text color="red">{step.error}</Text>
-				<Box marginTop={1}>
-					<Text dimColor>Press Enter to continue</Text>
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'red', content: 'Switch Failed' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', { fg: 'red', content: step.error }),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { dimColor: true, content: 'Press Enter to continue' }),
+			),
 		);
 	}
 

@@ -6,15 +6,29 @@ import {
 	unlinkSync,
 	writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { UserConfig } from './config.js';
-import { mergePackTools, resolvePersonaFromPacks } from './loader.js';
-import type { McpRegistry } from './mcp/registry.js';
+import {
+	mergePackTools,
+	resolvePackPrompt,
+	resolvePersonaFromPacks,
+} from './loader.js';
 import { replaceAvailableTools } from './pack-loader.js';
-import type { ToolDef, ToolFilter, ToolPack } from './sdk/tool.js';
+import { getSessionsDir } from './paths.js';
+import { type SessionData, sessionDataSchema } from './schemas.js';
+import type { ResolvedProvider } from './sdk/provider-resolve.js';
+import {
+	applyToolFilter,
+	type ToolDef,
+	type ToolFilter,
+	type ToolPack,
+} from './sdk/tool.js';
 import { SkillRegistry } from './skill-registry.js';
 import { assembleSystemPrompt } from './system-prompt.js';
+
+export interface McpToolProvider {
+	getTools(): ToolDef[];
+}
 
 export interface AgentInstance {
 	id: string;
@@ -32,18 +46,13 @@ export interface AgentInstance {
 		| 'waiting_input';
 	model: string;
 	activeSkills: Set<string>;
+	packName?: string;
+	resolvedProvider?: ResolvedProvider;
+	currentTask?: string;
+	packSystemPrompt?: string;
 }
 
-export interface SessionData {
-	sessionId: string;
-	name: string;
-	persona: string;
-	model: string;
-	activeSkills: string[];
-	messages: any[];
-	createdAt: string;
-	updatedAt: string;
-}
+export type { SessionData };
 
 export interface SessionSummary {
 	sessionId: string;
@@ -58,7 +67,7 @@ interface ManifestData {
 	sessions: Record<string, SessionSummary>;
 }
 
-const SESSION_DIR = join(homedir(), '.openexplorer', 'sessions');
+const SESSION_DIR = getSessionsDir();
 const MANIFEST_PATH = join(SESSION_DIR, 'manifest.json');
 
 export class AgentRegistry {
@@ -67,7 +76,7 @@ export class AgentRegistry {
 	private packs: ToolPack[] = [];
 	private userConfig?: UserConfig;
 	private skillRegistry: SkillRegistry = new SkillRegistry();
-	private mcpRegistry: McpRegistry | null = null;
+	private mcpRegistry: McpToolProvider | null = null;
 	private createdAtMap: Map<string, string> = new Map();
 
 	setPacks(packs: ToolPack[]) {
@@ -79,7 +88,7 @@ export class AgentRegistry {
 	setSkillRegistry(sr: SkillRegistry) {
 		this.skillRegistry = sr;
 	}
-	setMcpRegistry(mr: McpRegistry) {
+	setMcpRegistry(mr: McpToolProvider) {
 		this.mcpRegistry = mr;
 	}
 
@@ -90,19 +99,24 @@ export class AgentRegistry {
 		messages?: any[];
 		activeSkills?: string[];
 		systemPromptOverride?: string;
+		packName?: string;
 	}): AgentInstance {
 		const id = config.name
 			.toLowerCase()
 			.replace(/\s+/g, '-')
 			.replace(/[^a-z0-9-]/g, '');
 		const personaDef = config.persona
-			? resolvePersonaFromPacks(config.persona, this.packs)
+			? resolvePersonaFromPacks(config.persona, this.packs, config.packName)
 			: null;
 		const activeSkillDefs = this.skillRegistry.getActive();
 		const allSkillDefs = this.skillRegistry.getAll();
+		const effectiveOverride =
+			config.systemPromptOverride ||
+			resolvePackPrompt(this.packs, config.packName) ||
+			undefined;
 		let systemPrompt: string;
-		if (config.systemPromptOverride) {
-			systemPrompt = config.systemPromptOverride;
+		if (effectiveOverride) {
+			systemPrompt = effectiveOverride;
 			if (activeSkillDefs.length > 0) {
 				const skillBlock = activeSkillDefs
 					.map((s) => {
@@ -122,11 +136,20 @@ export class AgentRegistry {
 				activeSkillDefs,
 				undefined,
 				allSkillDefs,
+				config.packName,
+				undefined,
 			);
 		}
 		const tools = mergePackTools(this.packs, personaDef?.toolFilter);
-		const mcpTools = this.mcpRegistry?.getTools() || [];
+		const mcpTools = applyToolFilter(
+			this.getFilteredMcpTools(config.packName),
+			personaDef?.toolFilter,
+		);
 		const allTools = [...tools, ...mcpTools];
+		systemPrompt = replaceAvailableTools(
+			systemPrompt,
+			allTools.map((t) => t.name),
+		);
 
 		if (config.activeSkills?.length) {
 			for (const skillName of config.activeSkills) {
@@ -144,6 +167,8 @@ export class AgentRegistry {
 			status: 'idle',
 			model: config.model,
 			activeSkills: new Set(config.activeSkills || []),
+			packName: config.packName,
+			packSystemPrompt: effectiveOverride || undefined,
 		};
 
 		this.agents.set(id, agent);
@@ -156,12 +181,23 @@ export class AgentRegistry {
 		if (!skill) return null;
 		const agent = this.getActive();
 		if (agent) {
+			if (
+				agent.packName &&
+				skill.packName &&
+				skill.packName !== agent.packName
+			) {
+				this.skillRegistry.deactivate(name);
+				return null;
+			}
 			agent.activeSkills.add(name);
 			this.rebuildSystemPrompt(agent);
 			if (skill.allowedTools) {
-				agent.tools = agent.tools.filter((t) =>
+				const filtered = agent.tools.filter((t) =>
 					skill.allowedTools?.includes(t.name),
 				);
+				if (filtered.length > 0) {
+					agent.tools = filtered;
+				}
 			}
 		}
 		return skill.description;
@@ -177,7 +213,7 @@ export class AgentRegistry {
 			if (agent) {
 				agent.activeSkills.clear();
 				this.rebuildSystemPrompt(agent);
-				agent.tools = this.getAllTools();
+				agent.tools = this.getAllTools(undefined, agent.packName);
 			}
 			return;
 		}
@@ -186,7 +222,7 @@ export class AgentRegistry {
 		if (agent) {
 			agent.activeSkills.delete(name);
 			this.rebuildSystemPrompt(agent);
-			agent.tools = this.getAllTools();
+			agent.tools = this.getAllTools(undefined, agent.packName);
 		}
 	}
 
@@ -207,41 +243,137 @@ export class AgentRegistry {
 			this.skillRegistry.getActive(),
 			undefined,
 			this.skillRegistry.getAll(),
+			agent.packName,
+			agent.currentTask,
+		);
+		agent.systemPrompt = replaceAvailableTools(
+			agent.systemPrompt,
+			agent.tools.map((t) => t.name),
 		);
 	}
 
 	private rebuildSystemPrompt(agent: AgentInstance): void {
 		const personaDef =
 			agent.persona !== 'default'
-				? resolvePersonaFromPacks(agent.persona, this.packs)
+				? resolvePersonaFromPacks(agent.persona, this.packs, agent.packName)
 				: null;
 		const activeSkills = this.skillRegistry.getActive();
-		agent.systemPrompt = assembleSystemPrompt(
-			agent.persona !== 'default' ? agent.persona : undefined,
-			personaDef ?? undefined,
-			this.userConfig,
-			activeSkills,
-			undefined,
-			this.skillRegistry.getAll(),
+		const effectivePrompt =
+			agent.packSystemPrompt || resolvePackPrompt(this.packs, agent.packName);
+
+		if (effectivePrompt) {
+			agent.systemPrompt = assembleSystemPrompt(
+				agent.persona !== 'default' ? agent.persona : undefined,
+				{ prompt: effectivePrompt },
+				this.userConfig,
+				activeSkills,
+				undefined,
+				this.skillRegistry.getAll(),
+				agent.packName,
+				agent.currentTask,
+			);
+			if (!agent.packSystemPrompt) {
+				agent.packSystemPrompt = effectivePrompt;
+			}
+		} else {
+			agent.systemPrompt = assembleSystemPrompt(
+				agent.persona !== 'default' ? agent.persona : undefined,
+				personaDef ?? undefined,
+				this.userConfig,
+				activeSkills,
+				undefined,
+				this.skillRegistry.getAll(),
+				agent.packName,
+				agent.currentTask,
+			);
+		}
+
+		agent.systemPrompt = replaceAvailableTools(
+			agent.systemPrompt,
+			agent.tools.map((t) => t.name),
 		);
 	}
 
-	private getAllTools(filter?: ToolFilter): ToolDef[] {
+	private getAllTools(filter?: ToolFilter, packName?: string): ToolDef[] {
 		const packTools = mergePackTools(this.packs, filter);
-		const mcpTools = this.mcpRegistry?.getTools() || [];
+		const mcpTools = this.getFilteredMcpTools(packName);
 		return [...packTools, ...mcpTools];
+	}
+
+	private getFilteredMcpTools(packName?: string): ToolDef[] {
+		const allMcpTools = this.mcpRegistry?.getTools() || [];
+		if (!packName) return allMcpTools;
+		const pack = this.packs.find((p) => p.name === packName);
+		if (!pack) return allMcpTools;
+		const packMcpServers = new Set(Object.keys(pack.mcpServers || {}));
+		const alwaysVisible = new Set<string>();
+		const serverCounts = new Map<string, number>();
+		for (const p of this.packs) {
+			for (const s of Object.keys(p.mcpServers || {})) {
+				serverCounts.set(s, (serverCounts.get(s) || 0) + 1);
+			}
+		}
+		for (const [s, count] of serverCounts) {
+			if (count >= 2) alwaysVisible.add(s);
+		}
+		const allowed = new Set([...packMcpServers, ...alwaysVisible]);
+		return allMcpTools.filter((t) => {
+			if (!t.mcpServer) return true;
+			return allowed.has(t.mcpServer);
+		});
 	}
 
 	rebuildMcpTools(): void {
 		const agent = this.getActive();
 		if (agent) {
-			agent.tools = this.getAllTools();
+			agent.tools = this.getAllTools(undefined, agent.packName);
 			const allToolNames = agent.tools.map((t) => t.name);
 			agent.systemPrompt = replaceAvailableTools(
 				agent.systemPrompt,
 				allToolNames,
 			);
 		}
+	}
+
+	rebuildForTask(agent: AgentInstance, tools: ToolDef[]): void {
+		const personaDef =
+			agent.persona !== 'default'
+				? resolvePersonaFromPacks(agent.persona, this.packs, agent.packName)
+				: null;
+		const effectivePrompt =
+			agent.packSystemPrompt || resolvePackPrompt(this.packs, agent.packName);
+
+		if (effectivePrompt) {
+			agent.systemPrompt = assembleSystemPrompt(
+				agent.persona !== 'default' ? agent.persona : undefined,
+				{ prompt: effectivePrompt },
+				this.userConfig,
+				this.skillRegistry.getActive(),
+				undefined,
+				this.skillRegistry.getAll(),
+				agent.packName,
+				agent.currentTask,
+			);
+			if (!agent.packSystemPrompt) {
+				agent.packSystemPrompt = effectivePrompt;
+			}
+		} else {
+			agent.systemPrompt = assembleSystemPrompt(
+				agent.persona !== 'default' ? agent.persona : undefined,
+				personaDef ?? undefined,
+				this.userConfig,
+				this.skillRegistry.getActive(),
+				undefined,
+				this.skillRegistry.getAll(),
+				agent.packName,
+				agent.currentTask,
+			);
+		}
+
+		agent.systemPrompt = replaceAvailableTools(
+			agent.systemPrompt,
+			tools.map((t) => t.name),
+		);
 	}
 
 	getActive(): AgentInstance | undefined {
@@ -282,9 +414,7 @@ export class AgentRegistry {
 	switchModel(model: string): AgentInstance | undefined {
 		const prev = this.getActive();
 		if (!prev) return undefined;
-		const oldId = prev.id;
 		prev.model = model;
-		this.rebuildSystemPrompt(prev);
 		return prev;
 	}
 
@@ -322,6 +452,8 @@ export class AgentRegistry {
 				messages: agent.messages,
 				createdAt,
 				updatedAt: now,
+				packName: agent.packName,
+				packSystemPrompt: agent.packSystemPrompt,
 			};
 			const path = join(SESSION_DIR, `${agent.id}.json`);
 			writeFileSync(path, JSON.stringify(data, null, 2));
@@ -403,7 +535,8 @@ export class AgentRegistry {
 		const path = join(SESSION_DIR, `${id}.json`);
 		if (!existsSync(path)) return null;
 		try {
-			return JSON.parse(readFileSync(path, 'utf-8')) as SessionData;
+			const raw = JSON.parse(readFileSync(path, 'utf-8'));
+			return sessionDataSchema.parse(raw) as SessionData;
 		} catch {
 			return null;
 		}
@@ -421,6 +554,8 @@ export class AgentRegistry {
 			model: data.model,
 			messages: data.messages || [],
 			activeSkills: data.activeSkills || [],
+			packName: data.packName,
+			systemPromptOverride: data.packSystemPrompt,
 		});
 		this.activeId = agent.id;
 		return agent;

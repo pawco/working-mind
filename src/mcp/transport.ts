@@ -46,7 +46,7 @@ async function createStdioTransport(
 		});
 	}
 
-	const client = new Client({ name: `openexplorer-${name}`, version: VERSION });
+	const client = new Client({ name: `wmind-${name}`, version: VERSION });
 
 	try {
 		await client.connect(transport);
@@ -91,7 +91,7 @@ async function createRemoteTransport(
 	const transport = new SSEClientTransport(new URL(url), {
 		requestInit: { headers },
 	});
-	const client = new Client({ name: `openexplorer-${name}`, version: VERSION });
+	const client = new Client({ name: `wmind-${name}`, version: VERSION });
 	await client.connect(transport);
 	return {
 		client,

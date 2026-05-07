@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CommandContext } from '../sdk/command.js';
 import { memoryCmd } from './memory-cmd.js';
 
-const TEST_DIR = join(homedir(), '.openexplorer');
+const TEST_DIR = join(homedir(), '.wmind');
 const MEMORIES_DIR = join(TEST_DIR, 'memories');
 const DEFAULT_MEMORY = join(TEST_DIR, 'memory.jsonl');
 
@@ -31,6 +31,8 @@ function makeCtx(
 			status: 'idle',
 			model: 'test',
 			activeSkills: new Set(),
+			currentTask: undefined,
+			packSystemPrompt: undefined,
 		},
 		config: {
 			model: 'test',
@@ -163,8 +165,7 @@ describe('memoryCmd', () => {
 			const result = await memoryCmd.handler(ctx);
 			expect(result.type).toBe('trigger-agent');
 			if (result.type === 'trigger-agent') {
-				expect(ctx.agent.messages.length).toBe(1);
-				expect(ctx.agent.messages[0].content).toContain('React migration');
+				expect(ctx.agent.currentTask).toContain('React migration');
 			}
 		});
 
@@ -684,7 +685,7 @@ describe('memoryCmd', () => {
 
 		it('export writes to file with --file flag', async () => {
 			writeTestMemoryFile(DEFAULT_MEMORY, [{ name: 'Test', type: 'concept' }]);
-			const _exportDir = join(homedir(), '.openexplorer', 'exports');
+			const _exportDir = join(homedir(), '.wmind', 'exports');
 			const result = await memoryCmd.handler(
 				makeCtx('export mermaid --file test-graph.mmd'),
 			);

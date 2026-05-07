@@ -2,6 +2,7 @@ import type { McpEnvVarDef, UserConfig } from '../config.js';
 import type { McpRegistry } from '../mcp/registry.js';
 import type { AgentInstance } from '../registry.js';
 import type { AgentConfig } from '../types.js';
+import type { ProviderErrorCategory } from './provider-error.js';
 
 export interface HistoryEntry {
 	id: number;
@@ -20,6 +21,10 @@ export interface HistoryEntry {
 	startTime?: number;
 	endTime?: number;
 	plainText?: boolean;
+	costInfo?: { promptTokens: number; completionTokens: number; cost: number };
+	errorCategory?: ProviderErrorCategory;
+	errorSuggestion?: string;
+	errorCanRetry?: boolean;
 }
 
 export interface CommandContext {
@@ -46,7 +51,7 @@ export type CommandResult =
 			serverName: string;
 			requiredEnvVars: McpEnvVarDef[];
 	  }
-	| { type: 'trigger-agent'; content: string }
+	| { type: 'trigger-agent'; content: string; allowedTools?: string[] }
 	| {
 			type: 'reconnect-memory-store';
 			storeName: string;
@@ -54,11 +59,15 @@ export type CommandResult =
 			deletedEntityCount?: number;
 			deletedObsCount?: number;
 	  }
-	| { type: 'open-memory-wizard' };
+	| { type: 'open-memory-wizard' }
+	| { type: 'add-pack-agent'; packName: string }
+	| { type: 'confirm'; message: string; command: string; args: string };
 
 export interface SlashCommand {
 	name: string;
 	description: string;
 	usage?: string;
+	allowedTools?: string[];
+	requiresConfirmation?: boolean;
 	handler: (ctx: CommandContext) => CommandResult | Promise<CommandResult>;
 }

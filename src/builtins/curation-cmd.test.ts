@@ -1,6 +1,6 @@
-import { join } from 'node:path';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
 	exportCmd,
@@ -9,7 +9,7 @@ import {
 	summarizeCmd,
 } from './curation-cmd.js';
 
-const RESEARCH_DIR = join(homedir(), '.openexplorer', 'research');
+const RESEARCH_DIR = join(homedir(), '.wmind', 'research');
 
 function makeCtx(overrides: any = {}) {
 	const messages: any[] = [];
@@ -25,6 +25,8 @@ function makeCtx(overrides: any = {}) {
 			model: '',
 			activeSkills: [],
 			customPrompt: '',
+			currentTask: undefined as string | undefined,
+			packSystemPrompt: undefined,
 		},
 		config: {
 			packs: [] as any[],
@@ -57,47 +59,52 @@ describe('curation commands', () => {
 			expect(result.content).toContain('No conversation');
 		});
 
-		it('produces immediate summary from conversation', () => {
+		it('produces trigger-agent to persist synthesis', () => {
 			const ctx = makeCtx();
-			ctx.agent.messages.push({ role: 'user', content: 'What is quantum computing?' });
-			ctx.agent.messages.push({ role: 'assistant', content: 'Quantum computing uses qubits that can be in superposition.' });
+			ctx.agent.messages.push({
+				role: 'user',
+				content: 'What is quantum computing?',
+			});
+			ctx.agent.messages.push({
+				role: 'assistant',
+				content: 'Quantum computing uses qubits that can be in superposition.',
+			});
 			const result = msg(summarizeCmd.handler(ctx));
-			expect(result.type).toBe('message');
-			expect(result.content).toContain('Topic');
-			expect(result.content).toContain('quantum computing');
-			expect(result.content).toContain('Key Findings');
-			expect(result.content).toContain('qubits');
-			expect(result.plainText).toBe(true);
+			expect(result.type).toBe('trigger-agent');
+			expect(result.content).toContain('Saving synthesis');
 		});
 
-		it('does not inject messages into agent history', () => {
+		it('sets currentTask for auto-persist', () => {
 			const ctx = makeCtx();
 			ctx.agent.messages.push({ role: 'user', content: 'Test question' });
 			ctx.agent.messages.push({ role: 'assistant', content: 'Test answer' });
-			const before = ctx.agent.messages.length;
 			summarizeCmd.handler(ctx);
-			expect(ctx.agent.messages.length).toBe(before);
+			expect(ctx.agent.currentTask).toContain('Auto-persist');
 		});
 
-		it('includes sources when tool results exist', () => {
+		it('includes sources in synthesis observations', () => {
 			const ctx = makeCtx();
 			ctx.agent.messages.push({ role: 'user', content: 'Search for X' });
 			ctx.agent.messages.push({ role: 'assistant', content: 'Found X.' });
-			ctx.agent.messages.push({ role: 'tool_result', name: 'brave-search', content: 'Result data' });
+			ctx.agent.messages.push({
+				role: 'tool_result',
+				name: 'brave-search',
+				content: 'Result data',
+			});
 			const result = msg(summarizeCmd.handler(ctx));
-			expect(result.content).toContain('Sources Used');
-			expect(result.content).toContain('brave-search');
+			expect(result.type).toBe('trigger-agent');
+			expect(ctx.agent.currentTask).toContain('brave-search');
 		});
 
-		it('shows generic format note when no pack curation', () => {
+		it('triggers agent auto-persist when no pack curation', () => {
 			const ctx = makeCtx();
 			ctx.agent.messages.push({ role: 'user', content: 'Hello' });
 			ctx.agent.messages.push({ role: 'assistant', content: 'Hi there' });
 			const result = msg(summarizeCmd.handler(ctx));
-			expect(result.content).toContain('generic format');
+			expect(result.type).toBe('trigger-agent');
 		});
 
-		it('omits generic format note when pack has curation', () => {
+		it('triggers agent auto-persist even with pack curation', () => {
 			const ctx = makeCtx({
 				config: {
 					packs: [{ name: 'test', curation: { summarize: 'Custom template' } }],
@@ -106,7 +113,7 @@ describe('curation commands', () => {
 			ctx.agent.messages.push({ role: 'user', content: 'Hello' });
 			ctx.agent.messages.push({ role: 'assistant', content: 'Hi there' });
 			const result = msg(summarizeCmd.handler(ctx));
-			expect(result.content).not.toContain('generic format');
+			expect(result.type).toBe('trigger-agent');
 		});
 	});
 
@@ -134,7 +141,10 @@ describe('curation commands', () => {
 				},
 			});
 			ctx.agent.messages.push({ role: 'user', content: 'What is Rust?' });
-			ctx.agent.messages.push({ role: 'assistant', content: 'Rust is a systems programming language.' });
+			ctx.agent.messages.push({
+				role: 'assistant',
+				content: 'Rust is a systems programming language.',
+			});
 			const result = msg(exportCmd.handler(ctx));
 			expect(result.type).toBe('message');
 			expect(result.content).toContain('Exported');
@@ -163,8 +173,15 @@ describe('curation commands', () => {
 				},
 			});
 			ctx.agent.messages.push({ role: 'user', content: 'Tell me about Go' });
-			ctx.agent.messages.push({ role: 'assistant', content: 'Go has goroutines for concurrency.' });
-			ctx.agent.messages.push({ role: 'tool_result', name: 'brave-search', content: 'Search result' });
+			ctx.agent.messages.push({
+				role: 'assistant',
+				content: 'Go has goroutines for concurrency.',
+			});
+			ctx.agent.messages.push({
+				role: 'tool_result',
+				name: 'brave-search',
+				content: 'Search result',
+			});
 			const result = msg(exportCmd.handler(ctx));
 			expect(result.content).toContain('1 sources');
 		});

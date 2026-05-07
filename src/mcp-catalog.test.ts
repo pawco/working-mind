@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KNOWN_SERVERS, type KnownServer } from './mcp-catalog.js';
+import { KNOWN_SERVERS } from './mcp-catalog.js';
 
 describe('MCP catalog', () => {
 	it('has at least 10 servers', () => {
@@ -42,7 +42,9 @@ describe('MCP catalog', () => {
 		const fc = KNOWN_SERVERS.find((s) => s.id === 'firecrawl');
 		expect(fc).toBeDefined();
 		expect(fc?.package).toBe('firecrawl-mcp');
-		expect(fc?.envVars.some((e) => e.name === 'FIRECRAWL_API_KEY' && e.required)).toBe(true);
+		expect(
+			fc?.envVars.some((e) => e.name === 'FIRECRAWL_API_KEY' && e.required),
+		).toBe(true);
 	});
 
 	it('includes arxiv with no env vars', () => {

@@ -18,7 +18,7 @@ describe('loadUserConfig', () => {
 	it('deep merges with defaults', () => {
 		const originalHome = process.env.HOME;
 		const tmpDir = `/tmp/oe-test-merge-${Date.now()}`;
-		mkdirSync(join(tmpDir, '.openexplorer'), { recursive: true });
+		mkdirSync(join(tmpDir, '.wmind'), { recursive: true });
 		process.env.HOME = tmpDir;
 		writeUserConfig({ defaultModel: 'test-model' });
 		const config = loadUserConfig();

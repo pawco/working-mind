@@ -1,13 +1,21 @@
+import type { PackManifest } from '../pack-loader.js';
 import type {
 	CommandContext,
 	CommandResult,
 	SlashCommand,
 } from '../sdk/command.js';
-import { getMergedModels } from '../sdk/model-discovery.js';
+import {
+	clearDiscoveryCache,
+	clearDiskCache,
+	getMergedModels,
+} from '../sdk/model-discovery.js';
 import { findProvider, resolveAlias } from '../sdk/provider-registry.js';
 import {
+	cacheApiKey,
 	detectAvailableProviders,
 	resolveApiKey,
+	resolveApiKeyAsync,
+	resolveModelSpec,
 } from '../sdk/provider-resolve.js';
 import { listSystemPrompts, saveSystemPrompt } from '../system-prompt.js';
 import {
@@ -16,6 +24,8 @@ import {
 	researchCmd,
 	summarizeCmd,
 } from './curation-cmd.js';
+import { ingestCmd } from './ingest-cmd.js';
+import { lintCmd } from './lint-cmd.js';
 import { getMcpCommands } from './mcp-cmd.js';
 import { memoryCmd } from './memory-cmd.js';
 
@@ -39,10 +49,7 @@ export const compactCmd: SlashCommand = {
 		const instruction =
 			ctx.args ||
 			'Summarize the conversation so far in a concise way, preserving key facts, decisions, and code changes. Output only the summary, nothing else.';
-		ctx.agent.messages.push({
-			role: 'user',
-			content: `[System: ${instruction}]`,
-		});
+		ctx.agent.currentTask = instruction;
 		return {
 			type: 'trigger-agent',
 			content: 'Compacting...',
@@ -54,24 +61,50 @@ export const modelCmd: SlashCommand = {
 	name: 'model',
 	description: 'Show current model',
 	usage: '[new-model-spec]',
-	handler: (ctx: CommandContext): CommandResult => {
+	handler: async (ctx: CommandContext): Promise<CommandResult> => {
 		if (!ctx.args) {
 			return { type: 'message', content: `Current model: ${ctx.agent.model}` };
 		}
 
-		const fullModelId = resolveAlias(ctx.args);
-		ctx.agent.model = fullModelId;
-		ctx.config.model = fullModelId;
+		let resolved;
+		try {
+			resolved = resolveModelSpec(ctx.args, ctx.config.userConfig);
+		} catch (err: any) {
+			return { type: 'message', content: err.message };
+		}
 
-		if (fullModelId.includes('/')) {
-			const providerId = fullModelId.split('/')[0];
-			const provider = findProvider(providerId);
-			if (provider) {
-				ctx.config.baseUrl = provider.baseUrl;
-				const apiKey = resolveApiKey(provider, ctx.config.userConfig);
-				if (apiKey) ctx.config.apiKey = apiKey;
+		if (!resolved.model && !ctx.args.includes('/')) {
+			return {
+				type: 'message',
+				content: `Unknown model "${ctx.args}". Use /models to see available models, or specify provider/model (e.g. openrouter/anthropic/claude-sonnet-4.6).`,
+			};
+		}
+
+		const provider = resolved.provider;
+
+		if (provider.needsApiKey) {
+			const apiKey = resolveApiKey(provider, ctx.config.userConfig);
+			if (!apiKey) {
+				const asyncKey = await resolveApiKeyAsync(
+					provider,
+					ctx.config.userConfig,
+				);
+				if (!asyncKey) {
+					return {
+						type: 'message',
+						content: `No API key for ${provider.displayName}. Run /connect to set one up.`,
+					};
+				}
+				cacheApiKey(provider.id, asyncKey);
 			}
 		}
+
+		const fullModelId = ctx.args.includes('/')
+			? ctx.args
+			: `${provider.id}/${resolved.model?.id || resolved.providerRelativeModelId}`;
+
+		ctx.agent.model = fullModelId;
+		ctx.config.model = fullModelId;
 
 		if (ctx.getUserConfig && ctx.writeUserConfig) {
 			const uc = ctx.getUserConfig();
@@ -94,7 +127,7 @@ export const skillsCmd: SlashCommand = {
 			return {
 				type: 'message',
 				content:
-					'Use /skill <name> to activate a skill. Skills are loaded from packs and .openexplorer/skills/.',
+					'Use /skill <name> to activate a skill. Skills are loaded from packs and ~/.wmind/skills/.',
 			};
 		}
 		return { type: 'none' };
@@ -119,7 +152,7 @@ export const skillCmd: SlashCommand = {
 		if (!result) {
 			return {
 				type: 'message',
-				content: `Skill "${ctx.args}" not found. Available: check pack docs or .openexplorer/skills/`,
+				content: `Skill "${ctx.args}" not found. Available: check pack docs or ~/.wmind/skills/`,
 			};
 		}
 		return {
@@ -152,7 +185,7 @@ export const undoCmd: SlashCommand = {
 
 export const quitCmd: SlashCommand = {
 	name: 'q',
-	description: 'Quit OpenExplorer',
+	description: 'Quit Working Mind',
 	handler: (ctx: CommandContext): CommandResult => {
 		ctx.exit();
 		return { type: 'none' };
@@ -161,7 +194,7 @@ export const quitCmd: SlashCommand = {
 
 export const quitAliasCmd: SlashCommand = {
 	name: 'quit',
-	description: 'Quit OpenExplorer',
+	description: 'Quit Working Mind',
 	handler: (ctx: CommandContext): CommandResult => {
 		ctx.exit();
 		return { type: 'none' };
@@ -170,7 +203,7 @@ export const quitAliasCmd: SlashCommand = {
 
 export const exitCmd: SlashCommand = {
 	name: 'exit',
-	description: 'Quit OpenExplorer',
+	description: 'Quit Working Mind',
 	handler: (ctx: CommandContext): CommandResult => {
 		ctx.exit();
 		return { type: 'none' };
@@ -179,9 +212,19 @@ export const exitCmd: SlashCommand = {
 
 export const addCmd: SlashCommand = {
 	name: 'add',
-	description: 'Add a new agent tab',
-	usage: '[name]',
-	handler: (_ctx: CommandContext): CommandResult => {
+	description: 'Add a new agent tab (optionally from a pack)',
+	usage: '[pack-name | name]',
+	handler: (ctx: CommandContext): CommandResult => {
+		if (ctx.args) {
+			const pack = ctx.config.packs.find((p: any) => p.name === ctx.args);
+			if (pack) {
+				return { type: 'add-pack-agent', packName: ctx.args };
+			}
+			return {
+				type: 'message',
+				content: `Pack "${ctx.args}" not loaded. Available: ${ctx.config.packs.map((p: any) => p.name).join(', ') || 'none'}. Use --pack to load at startup.`,
+			};
+		}
 		return {
 			type: 'message',
 			content: 'Press Ctrl+A or type /add <name> in the input to add a tab.',
@@ -237,7 +280,7 @@ export const packCmd: SlashCommand = {
 			if (packs.length === 0) {
 				return {
 					type: 'message',
-					content: 'No packs loaded. Start with: openexplorer --pack starter',
+					content: 'No packs loaded. Start with: wmind --pack starter',
 				};
 			}
 			const lines = packs.map((p: any) => {
@@ -282,6 +325,39 @@ export const modelsCmd: SlashCommand = {
 	usage: '[provider-id]',
 	handler: async (ctx: CommandContext): Promise<CommandResult> => {
 		const arg = ctx.args.trim();
+
+		if (arg === 'refresh') {
+			clearDiscoveryCache();
+			clearDiskCache();
+			const available = detectAvailableProviders(ctx.config.userConfig);
+			const lines: string[] = [];
+			for (const provider of available) {
+				const models = await getMergedModels(provider, ctx.config.userConfig);
+				lines.push(`${provider.displayName}: ${models.length} models`);
+			}
+			return {
+				type: 'message',
+				content: `Refreshed model list:\n${lines.join('\n')}`,
+				plainText: true,
+			};
+		}
+
+		if (arg.startsWith('refresh ')) {
+			const providerId = arg.slice(8).trim();
+			const provider = findProvider(providerId);
+			if (!provider) {
+				return { type: 'message', content: `Unknown provider: ${providerId}` };
+			}
+			clearDiscoveryCache(providerId);
+			clearDiskCache(providerId);
+			const models = await getMergedModels(provider, ctx.config.userConfig);
+			return {
+				type: 'message',
+				content: `${provider.displayName}: ${models.length} models refreshed`,
+				plainText: true,
+			};
+		}
+
 		if (arg) {
 			const resolved = resolveAlias(arg);
 			const providerId = resolved.includes('/')
@@ -450,11 +526,25 @@ export function getBuiltInCommands(): SlashCommand[] {
 		connectCmd,
 		sessionCmd,
 		promptCmd,
-		summarizeCmd,
-		exportCmd,
-		importCmd,
-		researchCmd,
+		ingestCmd,
 		memoryCmd,
+		lintCmd,
 		...getMcpCommands(),
 	];
+}
+
+export function getPackProvidedCommands(
+	manifest: PackManifest,
+): SlashCommand[] {
+	const commands: SlashCommand[] = [];
+	const declared = new Set(Object.keys(manifest.commands || {}));
+
+	if (manifest.curation) {
+		if (!declared.has('summarize')) commands.push(summarizeCmd);
+		if (!declared.has('export')) commands.push(exportCmd);
+		if (!declared.has('import')) commands.push(importCmd);
+		if (!declared.has('research')) commands.push(researchCmd);
+	}
+
+	return commands;
 }

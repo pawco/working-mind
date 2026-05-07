@@ -1,24 +1,18 @@
-import { highlight } from 'cli-highlight';
 import { createRenderer, strip, themes } from 'markdansi';
+import { highlightToAnsi } from './highlight-ansi.js';
 
 let cachedWidth = 80;
 let cachedRenderer = createRenderer({
 	theme: themes.dim,
 	width: cachedWidth,
+	color: true,
 	codeBox: true,
 	codeWrap: true,
 	codeGutter: false,
 	tableBorder: 'unicode',
 	tablePadding: 1,
 	quotePrefix: '│ ',
-	highlighter: (code: string, lang?: string) => {
-		if (!lang) return code;
-		try {
-			return highlight(code, { language: lang, ignoreIllegals: true });
-		} catch {
-			return code;
-		}
-	},
+	highlighter: highlightToAnsi,
 });
 
 export function renderMarkdown(text: string, width: number): string {
@@ -27,20 +21,14 @@ export function renderMarkdown(text: string, width: number): string {
 		cachedRenderer = createRenderer({
 			theme: themes.dim,
 			width,
+			color: true,
 			codeBox: true,
 			codeWrap: true,
 			codeGutter: false,
 			tableBorder: 'unicode',
 			tablePadding: 1,
 			quotePrefix: '│ ',
-			highlighter: (code: string, lang?: string) => {
-				if (!lang) return code;
-				try {
-					return highlight(code, { language: lang, ignoreIllegals: true });
-				} catch {
-					return code;
-				}
-			},
+			highlighter: highlightToAnsi,
 		});
 	}
 	return cachedRenderer(text);

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import pc from 'picocolors';
-import { startAgentTUI } from './app.js';
+import { startAgentTUI } from './app-opentui.js';
 import { getBuiltInCommands } from './builtins/index.js';
 import { loadCommandFiles } from './command-loader.js';
 import { CommandRegistry } from './command-registry.js';
@@ -19,7 +19,9 @@ import {
 import { AgentRegistry } from './registry.js';
 import { getDefaultModel, PROVIDERS } from './sdk/provider-registry.js';
 import {
+	cacheApiKey,
 	isOllamaModelAvailable,
+	probeLocalFast,
 	probeOllama,
 	resolveApiKey,
 	resolveModelSpec,
@@ -37,11 +39,8 @@ function collect(value: string, previous: string[]): string[] {
 }
 
 const program = new Command()
-	.name('openexplorer')
-	.aliases(['openExplorer'])
-	.description(
-		'Open-source terminal AI agent -- write a prompt, load tools, explore',
-	)
+	.name('wmind')
+	.description('Terminal AI agent with persistent knowledge graph (v0.0.1 dev)')
 	.version(VERSION)
 	.argument(
 		'[prompt]',
@@ -50,7 +49,7 @@ const program = new Command()
 	.option(
 		'-m, --model <spec>',
 		'AI model (provider/model, alias, or tier)',
-		process.env.OPENEXPLORER_MODEL || '',
+		process.env.WMIND_MODEL || '',
 	)
 	.option(
 		'-p, --prompt <spec>',
@@ -104,7 +103,7 @@ const program = new Command()
 			if (packs.length === 0) {
 				console.log(
 					pc.dim(
-						'No packs installed. Use "openexplorer pack install <url>" to add one.',
+						'No packs installed. Use "wmind pack install <url>" to add one.',
 					),
 				);
 			} else {
@@ -137,7 +136,7 @@ const program = new Command()
 		if (opts.savePrompt) {
 			const name = opts.savePrompt;
 			const promptText =
-				opts.prompt || 'You are OpenExplorer, a reasoning agent.';
+				opts.prompt || 'You are Working Mind, a reasoning agent.';
 			saveSystemPrompt(name, promptText, userConfig);
 			writeUserConfig(userConfig);
 			console.log(pc.green(`Saved system prompt "${name}"`));
@@ -152,10 +151,11 @@ const program = new Command()
 		skillRegistry.registerAll(loadSkillFiles());
 		commandRegistry.registerAll(loadCommandFiles());
 
-		console.error(pc.cyan(`OpenExplorer v${VERSION}`));
+		console.error(pc.cyan(`Working Mind v${VERSION}`));
 		console.error(pc.dim('  Initializing...'));
 
 		const ollama = await probeOllama();
+		const localFast = await probeLocalFast();
 
 		let ollamaDefault = '';
 		if (ollama.running && ollama.models.length > 0) {
@@ -168,9 +168,15 @@ const program = new Command()
 			if (preferred) ollamaDefault = `ollama/${preferred.name}`;
 		}
 
+		let localFastDefault = '';
+		if (localFast.running) {
+			localFastDefault = `local-fast/${localFast.model || 'gemma-3-4b-it-4bit'}`;
+		}
+
 		const modelSpec =
 			opts.model ||
 			userConfig.defaultModel ||
+			localFastDefault ||
 			ollamaDefault ||
 			getDefaultModel();
 		const resolved = resolveModelSpec(modelSpec, userConfig);
@@ -179,13 +185,14 @@ const program = new Command()
 		if (!apiKey) {
 			apiKey = resolveApiKey(resolved.provider, userConfig);
 		}
+		if (apiKey) cacheApiKey(resolved.provider.id, apiKey);
 
 		const needsKey = resolved.provider.needsApiKey;
 
 		if (needsKey && !apiKey) {
 			if (!ollama.running) {
 				console.error(pc.red('Error: No API key detected.'));
-				console.error(pc.dim('  Run: openexplorer --configure'));
+				console.error(pc.dim('  Run: wmind --configure'));
 				const envVars = PROVIDERS.filter((p) => p.needsApiKey && p.envVar)
 					.map((p) => p.envVar)
 					.slice(0, 4)
@@ -195,9 +202,14 @@ const program = new Command()
 			}
 		}
 
-		let modelId = resolved.model?.id || modelSpec;
+		let modelId = modelSpec;
 
-		if (resolved.provider.id === 'ollama' && ollama.running) {
+		if (resolved.provider.id === 'local-fast' && localFast.running) {
+			if (!modelId.includes('/')) {
+				modelId = `local-fast/${localFast.model || modelId}`;
+			}
+			console.error(pc.dim(`  Local Fast: vLLM-MLX on port ${localFast.port}`));
+		} else if (resolved.provider.id === 'ollama' && ollama.running) {
 			const ollamaModel = modelId.includes('/')
 				? modelId.split('/').slice(1).join('/')
 				: modelId;
@@ -224,7 +236,12 @@ const program = new Command()
 			}
 		}
 
-		const baseUrl = opts.baseUrl || resolved.baseUrl;
+		const baseUrl =
+			opts.baseUrl ||
+			(resolved.provider.id === 'local-fast' && localFast.running
+				? localFast.baseUrl
+				: '') ||
+			resolved.baseUrl;
 
 		const config: AgentConfig = {
 			model: modelId,
@@ -252,12 +269,15 @@ const program = new Command()
 			pc.dim(`  Model: ${providerLabel} / ${modelLabel}${priceLabel}`),
 		);
 
-		const packResult = await loadPacks(
+		const packNames =
 			opts.pack.length > 0 && opts.pack[0] !== 'none'
 				? opts.pack
 				: opts.pack[0] === 'none'
 					? []
-					: ['starter'],
+					: ['starter'];
+
+		const packResult = await loadPacks(
+			packNames,
 			skillRegistry,
 			commandRegistry,
 			userConfig,
@@ -310,18 +330,51 @@ const program = new Command()
 		registry.setSkillRegistry(skillRegistry);
 		registry.setMcpRegistry(mcpRegistry);
 
-		const defaultName =
-			opts.prompt ||
-			(packResult.packs.length > 0 ? packResult.packs[0].name : 'Agent');
-		registry.createAgent({
-			name: defaultName,
-			persona: opts.prompt,
-			model: config.model,
-			systemPromptOverride: config.systemPrompt,
-		});
+		if (packResult.packs.length > 1 && !opts.prompt) {
+			for (let i = 0; i < packResult.packs.length; i++) {
+				const pack = packResult.packs[i];
+				const loaded = packResult.loadedPacks[i];
+				const firstPersona = Object.keys(pack.personas || {})[0];
+				registry.createAgent({
+					name: pack.name,
+					persona: firstPersona,
+					model: config.model,
+					packName: pack.name,
+					systemPromptOverride:
+						loaded?.systemPrompt || packResult.systemPromptOverride,
+				});
+			}
+		} else {
+			const defaultName =
+				opts.prompt ||
+				(packResult.packs.length > 0 ? packResult.packs[0].name : 'Agent');
+			const defaultPack =
+				packResult.packs.length > 0 ? packResult.packs[0] : null;
+			const defaultLoaded = packResult.loadedPacks[0];
+			const firstPersona = defaultPack
+				? Object.keys(defaultPack.personas || {})[0]
+				: undefined;
+			registry.createAgent({
+				name: defaultName,
+				persona: opts.prompt || firstPersona,
+				model: config.model,
+				packName: defaultPack?.name,
+				systemPromptOverride:
+					config.systemPrompt || defaultLoaded?.systemPrompt,
+			});
+		}
 
 		for (const persona of opts.addAgent || []) {
-			registry.createAgent({ name: persona, persona, model: config.model });
+			const matchingPack = packResult.packs.find(
+				(p) => p.name === persona || p.personas?.[persona],
+			);
+			registry.createAgent({
+				name: persona,
+				persona,
+				model: config.model,
+				packName: matchingPack?.name,
+				systemPromptOverride: matchingPack?.systemPrompt,
+			});
 		}
 
 		console.error(
@@ -353,7 +406,18 @@ const program = new Command()
 					mcpRegistry,
 				);
 			} catch (err: any) {
-				if (err.message !== 'exit') throw err;
+				if (err.code === 'TUI_REQUIRES_BUN') {
+					console.error(
+						pc.yellow('\nInteractive TUI requires a platform binary.'),
+					);
+					console.error(pc.dim('  Reinstall:  npm install -g wmind'));
+					console.error(pc.dim('  Or with Bun:  bun $(which wmind)'));
+					console.error(
+						pc.dim('\n  Non-interactive mode:  wmind "your question"'),
+					);
+					process.exit(1);
+				}
+				throw err;
 			}
 			registry.saveSessions();
 			await mcpRegistry.disconnectAll();

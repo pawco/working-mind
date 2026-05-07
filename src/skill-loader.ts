@@ -1,14 +1,14 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { splitFrontmatter } from './frontmatter.js';
+import { getMcpProjectDir, getSkillsDir } from './paths.js';
 import type { SkillDef } from './sdk/tool.js';
 
-const CONFIG_DIR = join(homedir(), '.openexplorer');
+const CONFIG_DIR = getSkillsDir();
 
 export function loadSkillFiles(dirs?: string[]): SkillDef[] {
 	const searchDirs = dirs ?? [
-		join(process.cwd(), '.openexplorer', 'skills'),
+		join(process.cwd(), getMcpProjectDir(), 'skills'),
 		join(process.cwd(), '.agents', 'skills'),
 		join(CONFIG_DIR, 'skills'),
 	];

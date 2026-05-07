@@ -1,6 +1,6 @@
 {
 	// ═══════════════════════════════════════════════════════════════════
-	// OpenExplorer Provider & Model Registry
+	// Working Mind Provider & Model Registry
 	//
 	// This is the single source of truth for all provider/model metadata.
 	// The TypeScript provider-registry.ts loads this at runtime.
@@ -45,7 +45,7 @@
 			"baseUrl": "https://openrouter.ai/api/v1",
 			"apiFormat": "openai",
 			"envVar": "OPENROUTER_API_KEY",
-			"envVarAliases": ["OPENEXPLORER_OPENROUTER_KEY"],
+			"envVarAliases": ["WMIND_OPENROUTER_KEY"],
 			"free": "limited",
 			"website": "https://openrouter.ai",
 			"needsApiKey": true,
@@ -233,7 +233,7 @@
 			"baseUrl": "https://api.openai.com/v1",
 			"apiFormat": "openai",
 			"envVar": "OPENAI_API_KEY",
-			"envVarAliases": ["OPENEXPLORER_OPENAI_KEY"],
+			"envVarAliases": ["WMIND_OPENAI_KEY"],
 			"free": false,
 			"website": "https://platform.openai.com",
 			"needsApiKey": true,
@@ -358,14 +358,14 @@
 			"baseUrl": "https://api.anthropic.com/v1",
 			"apiFormat": "anthropic",
 			"envVar": "ANTHROPIC_API_KEY",
-			"envVarAliases": ["OPENEXPLORER_ANTHROPIC_KEY"],
+			"envVarAliases": ["WMIND_ANTHROPIC_KEY"],
 			"free": false,
 			"website": "https://console.anthropic.com",
 			"needsApiKey": true,
 			"canValidate": true,
 			"modelIdFormat": "provider-prefix",
 			"modelPrefixes": ["claude"],
-			"isPrimary": true,
+			"isPrimary": false,
 			"authStyle": "x-api-key",
 			"models": [
 				{
@@ -439,14 +439,14 @@
 			"baseUrl": "https://api.together.ai/v1",
 			"apiFormat": "openai",
 			"envVar": "TOGETHER_API_KEY",
-			"envVarAliases": ["OPENEXPLORER_TOGETHER_KEY"],
+			"envVarAliases": ["WMIND_TOGETHER_KEY"],
 			"free": "limited",
 			"website": "https://together.ai",
 			"needsApiKey": true,
 			"canValidate": true,
 			"modelIdFormat": "provider-prefix",
 			"modelPrefixes": [],
-			"isPrimary": false,
+			"isPrimary": true,
 			"authStyle": "bearer",
 			"models": [
 				{
@@ -533,14 +533,14 @@
 			"baseUrl": "https://api.groq.com/openai/v1",
 			"apiFormat": "openai",
 			"envVar": "GROQ_API_KEY",
-			"envVarAliases": ["OPENEXPLORER_GROQ_KEY"],
+			"envVarAliases": ["WMIND_GROQ_KEY"],
 			"free": "limited",
 			"website": "https://console.groq.com",
 			"needsApiKey": true,
 			"canValidate": true,
 			"modelIdFormat": "provider-prefix",
 			"modelPrefixes": [],
-			"isPrimary": false,
+			"isPrimary": true,
 			"authStyle": "bearer",
 			"models": [
 				{
@@ -609,7 +609,7 @@
 			"baseUrl": "https://api.deepseek.com",
 			"apiFormat": "openai",
 			"envVar": "DEEPSEEK_API_KEY",
-			"envVarAliases": ["OPENEXPLORER_DEEPSEEK_KEY"],
+			"envVarAliases": ["WMIND_DEEPSEEK_KEY"],
 			"free": "limited",
 			"website": "https://platform.deepseek.com",
 			"needsApiKey": true,
@@ -660,14 +660,14 @@
 			"baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai/",
 			"apiFormat": "openai",
 			"envVar": "GEMINI_API_KEY",
-			"envVarAliases": ["GOOGLE_API_KEY", "OPENEXPLORER_GEMINI_KEY"],
+			"envVarAliases": ["GOOGLE_API_KEY", "WMIND_GEMINI_KEY"],
 			"free": "limited",
 			"website": "https://aistudio.google.com",
 			"needsApiKey": true,
 			"canValidate": true,
 			"modelIdFormat": "provider-prefix",
 			"modelPrefixes": ["gemini"],
-			"isPrimary": false,
+			"isPrimary": true,
 			"authStyle": "bearer",
 			"models": [
 				{
@@ -717,6 +717,112 @@
 					"outputPricePer1M": 12.0,
 					"supportsReasoning": true,
 					"supportsToolCalling": true
+				}
+			]
+		},
+
+		// ── Local Fast (vLLM-MLX) ───────────────────────────────────────
+		// wmind-serve powered local inference on Apple Silicon.
+		// 4-5x faster than Ollama. OpenAI-compatible API + continuous batching.
+		// Auto-discovered: reads port from ~/.wmind-serve/config.json.
+		{
+			"id": "local-fast",
+			"displayName": "Local Fast (vLLM-MLX)",
+			"baseUrl": "http://127.0.0.1:19421/v1",
+			"apiFormat": "openai",
+			"envVar": "",
+			"free": true,
+			"website": "https://github.com/pawco/wmind-serve",
+			"needsApiKey": false,
+			"canValidate": true,
+			"modelIdFormat": "full",
+			"modelPrefixes": ["mlx-", "gemma-3", "qwen3", "llama-3", "deepseek-r1", "phi-4"],
+			"isPrimary": true,
+			"authStyle": "none",
+			"localProvider": {
+				"probeUrl": "http://127.0.0.1:19421/health",
+				"preferredModels": ["gemma-3-4b-it-4bit", "qwen3-4b-4bit", "llama-3.2-3b-it-4bit"]
+			},
+			"models": [
+				{
+					"id": "gemma-3-4b-it-4bit",
+					"displayName": "Gemma 3 4B (4-bit, MLX)",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["local-fast", "mlx-gemma3"]
+				},
+				{
+					"id": "qwen3-4b-4bit",
+					"displayName": "Qwen 3 4B (4-bit, MLX)",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["mlx-qwen3"]
+				},
+				{
+					"id": "llama-3.2-3b-it-4bit",
+					"displayName": "Llama 3.2 3B (4-bit, MLX)",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["mlx-llama"]
+				},
+				{
+					"id": "deepseek-r1-7b-4bit",
+					"displayName": "DeepSeek R1 7B (4-bit, MLX)",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["mlx-r1"]
+				},
+				{
+					"id": "qwen2.5-7b-4bit",
+					"displayName": "Qwen 2.5 7B (4-bit, MLX)",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["mlx-qwen25"]
+				},
+				{
+					"id": "llama-3.1-8b-4bit",
+					"displayName": "Llama 3.1 8B (4-bit, MLX)",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["mlx-llama8"]
+				},
+				{
+					"id": "phi-4-4bit",
+					"displayName": "Phi 4 14B (4-bit, MLX)",
+					"contextWindow": 131000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": false,
+					"supportsToolCalling": true,
+					"aliases": ["mlx-phi4"]
+				},
+				{
+					"id": "gemma-4-26b-4bit",
+					"displayName": "Gemma 4 26B (4-bit, MLX)",
+					"contextWindow": 262000,
+					"inputPricePer1M": 0,
+					"outputPricePer1M": 0,
+					"supportsReasoning": true,
+					"supportsToolCalling": true,
+					"aliases": ["mlx-gemma4"]
 				}
 			]
 		},
@@ -847,7 +953,8 @@
 		"smart": "deepseek/deepseek-v4-flash",
 		"best": "anthropic/claude-opus-4-7",
 		"cheap": "deepseek/deepseek-v4-flash",
-		"local": "ollama/qwen3-coder"
+		"local": "ollama/qwen3-coder",
+		"local-fast": "local-fast/gemma-3-4b-it-4bit"
 	},
 
 	// ─── Model Aliases ─────────────────────────────────────────────────

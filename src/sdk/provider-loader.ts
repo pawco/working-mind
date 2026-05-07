@@ -1,17 +1,18 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
-import { getDataDir } from '../paths.js';
-import type { ProviderEntry } from './provider-registry.js';
+import { getDataDir, getProvidersPath } from '../paths.js';
+import {
+	type ProviderEntry,
+	type ProvidersData,
+	formatZodError,
+	providersDataSchema,
+	providerEntrySchema,
+} from '../schemas.js';
 
-interface ProvidersData {
-	providers: ProviderEntry[];
-	tierAliases: Record<string, string>;
-	modelAliases: Record<string, string>;
-}
+export type { ProviderEntry, ProvidersData };
 
-const USER_PROVIDERS_PATH = join(homedir(), '.openexplorer', 'providers.jsonc');
+const USER_PROVIDERS_PATH = getProvidersPath();
 
 function getBundledPath(): string {
 	return join(getDataDir(), 'providers.jsonc');
@@ -35,7 +36,7 @@ function deepMergeProviders(
 			...o,
 			models: o.models ?? p.models,
 			envVarAliases: o.envVarAliases ?? p.envVarAliases,
-		} as ProviderEntry;
+		};
 	});
 }
 
@@ -44,7 +45,8 @@ let cached: ProvidersData | null = null;
 export function loadProviders(): ProvidersData {
 	if (cached) return cached;
 
-	const bundled = loadJsonc(getBundledPath()) as ProvidersData;
+	const rawBundled = loadJsonc(getBundledPath());
+	const bundled = providersDataSchema.parse(rawBundled);
 
 	if (!existsSync(USER_PROVIDERS_PATH)) {
 		cached = bundled;
@@ -52,15 +54,19 @@ export function loadProviders(): ProvidersData {
 	}
 
 	try {
-		const user = loadJsonc(USER_PROVIDERS_PATH) as Partial<ProvidersData>;
+		const rawUser = loadJsonc(USER_PROVIDERS_PATH);
+		const user = providersDataSchema.partial().parse(rawUser);
 		cached = {
 			providers: user.providers
-				? deepMergeProviders(bundled.providers, user.providers)
+				? deepMergeProviders(bundled.providers, user.providers as Partial<ProviderEntry>[])
 				: bundled.providers,
 			tierAliases: { ...bundled.tierAliases, ...user.tierAliases },
 			modelAliases: { ...bundled.modelAliases, ...user.modelAliases },
 		};
-	} catch {
+	} catch (err) {
+		if (err instanceof Error) {
+			console.error(`Warning: ${err.message}`);
+		}
 		cached = bundled;
 	}
 

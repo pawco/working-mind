@@ -29,6 +29,7 @@ function catalogEnvVarsForServer(name: string): McpEnvVarDef[] {
 function findMissingEnvVars(
 	configEnvVars: McpEnvVarDef[] | undefined,
 	catalogEnvVars: McpEnvVarDef[],
+	configEnv?: Record<string, string>,
 ): McpEnvVarDef[] {
 	const all = [...(configEnvVars || [])];
 	for (const cv of catalogEnvVars) {
@@ -36,7 +37,21 @@ function findMissingEnvVars(
 			all.push(cv);
 		}
 	}
-	return all.filter((e) => !process.env[e.name]);
+	return all.filter((e) => !process.env[e.name] && !configEnv?.[e.name]);
+}
+
+function allEnvVarsForServer(
+	name: string,
+	configEnvVars: McpEnvVarDef[] | undefined,
+): McpEnvVarDef[] {
+	const all = [...(configEnvVars || [])];
+	const catalogVars = catalogEnvVarsForServer(name);
+	for (const cv of catalogVars) {
+		if (!all.some((e) => e.name === cv.name)) {
+			all.push(cv);
+		}
+	}
+	return all;
 }
 
 export const mcpListCmd: SlashCommand = {
@@ -110,7 +125,7 @@ export const mcpRemoveCmd: SlashCommand = {
 
 export const mcpConnectCmd: SlashCommand = {
 	name: 'mcp-connect',
-	description: 'Connect to a disconnected MCP server',
+	description: 'Connect or reconfigure an MCP server',
 	usage: '<name>',
 	handler: async (ctx: CommandContext): Promise<CommandResult> => {
 		const mcpRegistry = ctx.mcpRegistry;
@@ -141,6 +156,15 @@ export const mcpConnectCmd: SlashCommand = {
 		}
 
 		if (info.status === 'connected') {
+			const config = mcpRegistry.getConfigs()[name];
+			const envVars = allEnvVarsForServer(name, config?.requiredEnvVars);
+			if (envVars.length > 0) {
+				return {
+					type: 'reconnect-server',
+					serverName: name,
+					requiredEnvVars: envVars,
+				};
+			}
 			return {
 				type: 'message',
 				content: `"${name}" is already connected (${info.toolCount} tools).`,
@@ -151,7 +175,7 @@ export const mcpConnectCmd: SlashCommand = {
 
 		const configEnvVars = config?.requiredEnvVars || [];
 		const catalogVars = catalogEnvVarsForServer(name);
-		const missing = findMissingEnvVars(configEnvVars, catalogVars);
+		const missing = findMissingEnvVars(configEnvVars, catalogVars, config?.env);
 
 		if (config?.enabled === false) {
 			if (missing.length > 0) {
@@ -177,6 +201,10 @@ export const mcpConnectCmd: SlashCommand = {
 					content: `Failed to connect to "${name}": ${newInfo.error || 'unknown error'}`,
 				};
 			}
+			const uc = loadUserConfig();
+			if (!uc.mcpServers) uc.mcpServers = {};
+			uc.mcpServers[name] = mcpConfig;
+			writeUserConfig(uc);
 			return {
 				type: 'message',
 				content: `Connected to "${name}" (${newInfo.toolCount} tools)`,

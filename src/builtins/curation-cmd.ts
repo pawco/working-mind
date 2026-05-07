@@ -1,19 +1,14 @@
-import {
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	readFileSync,
-	writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { getResearchDir } from '../paths.js';
 import type {
 	CommandContext,
 	CommandResult,
 	SlashCommand,
 } from '../sdk/command.js';
 
-const RESEARCH_DIR = join(homedir(), '.openexplorer', 'research');
+const RESEARCH_DIR = getResearchDir();
 
 function getActiveCuration(
 	ctx: CommandContext,
@@ -28,8 +23,7 @@ function extractUserMessages(ctx: CommandContext): string[] {
 		.filter((m: any) => m.role === 'user')
 		.map((m: any) =>
 			typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-		)
-		.filter((c: string) => !c.startsWith('[System:'));
+		);
 }
 
 function extractAssistantMessages(ctx: CommandContext): string[] {
@@ -160,7 +154,7 @@ function buildExportDoc(ctx: CommandContext): string {
 	lines.push(
 		'',
 		'---',
-		`Produced by OpenExplorer on ${date}. ${sourceCount} sources consulted.`,
+		`Produced by Working Mind on ${date}. ${sourceCount} sources consulted.`,
 	);
 
 	return lines.join('\n');
@@ -198,7 +192,24 @@ export const summarizeCmd: SlashCommand = {
 		if (summary === '(No conversation to summarize.)') {
 			return { type: 'message', content: summary };
 		}
-		return { type: 'message', content: summary, plainText: true };
+
+		const userMsgs = extractUserMessages(ctx);
+		const topicGuess = userMsgs[0]?.slice(0, 60) || 'Research session';
+		const date = new Date().toISOString().split('T')[0];
+		const entityName = `synthesis-${sanitizeFilename(topicGuess)}-${date}`;
+		const entityObs = [
+			`Summary of: ${topicGuess}`,
+			`Date: ${date}`,
+			`Pack: ${ctx.config.packs.length > 0 ? ctx.config.packs[0].name : 'default'}`,
+			summary.slice(0, 2000),
+		];
+
+		ctx.agent.currentTask = `Auto-persist this synthesis to memory as a synthesis entity. Use the mcp__memory__create_entities tool to create an entity with name="${entityName}", entityType="synthesis", observations=${JSON.stringify(entityObs)}. Then use mcp__memory__search_nodes to find entities whose names appear in the observations and create relation edges to them using mcp__memory__create_relations.`;
+
+		return {
+			type: 'trigger-agent',
+			content: `Saving synthesis to memory...`,
+		};
 	},
 };
 

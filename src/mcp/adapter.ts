@@ -7,7 +7,9 @@ const MAX_RATE_LIMIT_RETRIES = 1;
 
 class McpToolTimeoutError extends Error {
 	constructor(toolName: string) {
-		super(`MCP tool "${toolName}" timed out after ${MCP_TOOL_TIMEOUT_MS / 1000}s`);
+		super(
+			`MCP tool "${toolName}" timed out after ${MCP_TOOL_TIMEOUT_MS / 1000}s`,
+		);
 		this.name = 'McpToolTimeoutError';
 	}
 }
@@ -22,7 +24,13 @@ class McpRateLimitError extends Error {
 function isRateLimitError(err: any): boolean {
 	const msg = (err?.message || String(err)).toLowerCase();
 	const status = err?.status ?? err?.statusCode ?? err?.response?.status;
-	return status === 429 || msg.includes('429') || msg.includes('rate limit') || msg.includes('rate_limit') || msg.includes('too many requests');
+	return (
+		status === 429 ||
+		msg.includes('429') ||
+		msg.includes('rate limit') ||
+		msg.includes('rate_limit') ||
+		msg.includes('too many requests')
+	);
 }
 
 function withTimeout<T>(promise: Promise<T>, toolName: string): Promise<T> {
@@ -32,8 +40,14 @@ function withTimeout<T>(promise: Promise<T>, toolName: string): Promise<T> {
 			MCP_TOOL_TIMEOUT_MS,
 		);
 		promise.then(
-			(v) => { clearTimeout(timer); resolve(v); },
-			(e) => { clearTimeout(timer); reject(e); },
+			(v) => {
+				clearTimeout(timer);
+				resolve(v);
+			},
+			(e) => {
+				clearTimeout(timer);
+				reject(e);
+			},
 		);
 	});
 }
@@ -63,17 +77,33 @@ async function callToolWithRetry(
 	throw lastError;
 }
 
+import { jsonSchemaToZod } from '../schemas.js';
+
+const FILESYSTEM_DESTRUCTIVE_TOOLS = new Set([
+	'write_file',
+	'edit_file',
+	'create_directory',
+	'move_file',
+]);
+
 export function mcpToolToToolDef(
 	serverName: string,
-	mcpTool: { name: string; description?: string; inputSchema: any },
+	mcpTool: {
+		name: string;
+		description?: string;
+		inputSchema: any;
+		annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean };
+	},
 	client: Client,
 ): ToolDef {
 	const namespacedName = `mcp__${serverName}__${mcpTool.name}`;
+	const isReadOnly = mcpTool.annotations?.readOnlyHint === true;
 
 	return {
 		name: namespacedName,
 		description: `[${serverName}] ${mcpTool.description || mcpTool.name}`,
 		parameters: mcpTool.inputSchema || { type: 'object', properties: {} },
+		argSchema: mcpTool.inputSchema ? jsonSchemaToZod(mcpTool.inputSchema) : undefined,
 		execute: async (args: Record<string, any>) => {
 			const result = await callToolWithRetry(client, mcpTool.name, args);
 			const content = extractContent(
@@ -87,7 +117,10 @@ export function mcpToolToToolDef(
 			}
 			return content;
 		},
-		longRunning: true,
+		destructive:
+			serverName === 'filesystem' &&
+			FILESYSTEM_DESTRUCTIVE_TOOLS.has(mcpTool.name),
+		longRunning: !isReadOnly,
 		origin: 'mcp',
 		mcpServer: serverName,
 	};

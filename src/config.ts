@@ -5,66 +5,32 @@ import {
 	readFileSync,
 	writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { z, ZodError } from 'zod';
 import stripJsonComments from 'strip-json-comments';
 
+import { getConfigDir as resolveConfigDir } from './paths.js';
+import {
+	type CustomProviderEntry,
+	type McpEnvVarDef,
+	type McpServerConfig,
+	type UserConfig,
+	type UserProviderConfig,
+	formatZodError,
+	partialUserConfigSchema,
+} from './schemas.js';
 import { loadProviders } from './sdk/provider-loader.js';
 
-const CONFIG_DIR = join(homedir(), '.openexplorer');
+export type {
+	UserConfig,
+	UserProviderConfig,
+	CustomProviderEntry,
+	McpEnvVarDef,
+	McpServerConfig,
+};
+
+const CONFIG_DIR = resolveConfigDir();
 const CONFIG_FILE = join(CONFIG_DIR, 'config.jsonc');
-
-export interface UserProviderConfig {
-	apiKey?: string;
-	baseUrl?: string;
-}
-
-export interface CustomProviderEntry {
-	displayName: string;
-	baseUrl: string;
-	apiFormat: 'openai' | 'anthropic';
-	envVar?: string;
-	models?: { id: string; displayName?: string; contextWindow?: number }[];
-}
-
-export interface McpEnvVarDef {
-	name: string;
-	label: string;
-	required: boolean;
-	sensitive?: boolean;
-	hint?: string;
-}
-
-export interface McpServerConfig {
-	type: 'local' | 'remote';
-	url?: string;
-	command?: string[];
-	env?: Record<string, string>;
-	headers?: Record<string, string>;
-	enabled?: boolean;
-	requiredEnvVars?: McpEnvVarDef[];
-}
-
-export interface UserConfig {
-	defaultModel?: string;
-	providers?: Record<string, UserProviderConfig>;
-	systemPrompts?: Record<string, string>;
-	agents?: {
-		maxTurns?: number;
-		autoApprove?: boolean;
-		noThinking?: boolean;
-		maxTokens?: number;
-		thinkingBudget?: number;
-		permissions?: {
-			destructive?: 'allow' | 'deny' | 'ask';
-			longRunning?: 'allow' | 'deny' | 'ask';
-			normal?: 'allow' | 'deny' | 'ask';
-		};
-	};
-	customProviders?: Record<string, CustomProviderEntry>;
-	mcpServers?: Record<string, McpServerConfig>;
-	lastMemoryStore?: string;
-}
 
 function buildDefaultProviders(): Record<string, UserProviderConfig> {
 	const providers: Record<string, UserProviderConfig> = {};
@@ -83,7 +49,7 @@ const DEFAULT_CONFIG: UserConfig = {
 	defaultModel: undefined,
 	providers: buildDefaultProviders(),
 	systemPrompts: {
-		default: `You are OpenExplorer, a reasoning agent. Think carefully and provide thorough answers.
+		default: `You are Working Mind, a reasoning agent. Think carefully and provide thorough answers.
 When you use tools, explain what you're doing and why.
 If a tool fails, analyze the error and suggest fixes.`,
 	},
@@ -107,8 +73,16 @@ export function loadUserConfig(): UserConfig {
 	try {
 		const raw = readFileSync(CONFIG_FILE, 'utf-8');
 		const json = stripJsonComments(raw);
-		const parsed = JSON.parse(json) as Partial<UserConfig>;
-		return deepMerge(DEFAULT_CONFIG, parsed);
+		const parsed = JSON.parse(json);
+		const validated = partialUserConfigSchema.safeParse(parsed);
+		if (!validated.success) {
+			console.error(
+				`Warning: ${formatZodError('Invalid config.jsonc', validated.error)}`,
+			);
+			console.error('Falling back to defaults for invalid fields.');
+			return cloneConfig(DEFAULT_CONFIG);
+		}
+		return deepMerge(DEFAULT_CONFIG, validated.data);
 	} catch {
 		return cloneConfig(DEFAULT_CONFIG);
 	}
@@ -129,7 +103,7 @@ export function writeUserConfig(config: UserConfig): void {
 
 function deepMerge(
 	base: UserConfig,
-	override: Partial<UserConfig>,
+	override: z.infer<typeof partialUserConfigSchema>,
 ): UserConfig {
 	const result: UserConfig = cloneConfig(base);
 	if (override.defaultModel !== undefined)

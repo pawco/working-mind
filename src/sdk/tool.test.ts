@@ -45,6 +45,65 @@ describe('applyToolFilter', () => {
 		expect(result).toHaveLength(2);
 		expect(result.map((t) => t.name)).toEqual(['read', 'deploy']);
 	});
+
+	it('merges readonly preset with include override', () => {
+		const result = applyToolFilter(tools, {
+			preset: 'readonly',
+			include: ['read', 'deploy'],
+		});
+		expect(result.map((t) => t.name)).toEqual(['read', 'deploy']);
+	});
+
+	it('merges readonly preset with include wildcard override', () => {
+		const allTools: ToolDef[] = [
+			mockTool('mcp__memory__search_nodes', {
+				destructive: false,
+				longRunning: false,
+			}),
+			mockTool('mcp__memory__create_entities', {
+				destructive: true,
+				longRunning: false,
+			}),
+			mockTool('mcp__memory__add_observations', {
+				destructive: true,
+				longRunning: false,
+			}),
+			mockTool('mcp__brave__search', {
+				destructive: false,
+				longRunning: false,
+			}),
+			mockTool('read', { destructive: false, longRunning: false }),
+			mockTool('destroy', { destructive: true, longRunning: false }),
+		];
+		const result = applyToolFilter(allTools, {
+			preset: 'readonly',
+			include: ['mcp__memory__*'],
+		});
+		const names = result.map((t) => t.name);
+		expect(names).toContain('mcp__memory__search_nodes');
+		expect(names).toContain('mcp__memory__create_entities');
+		expect(names).toContain('mcp__memory__add_observations');
+		expect(names).toContain('mcp__brave__search');
+		expect(names).toContain('read');
+		expect(names).not.toContain('destroy');
+	});
+
+	it('merges none preset with include override (include wins)', () => {
+		const result = applyToolFilter(tools, {
+			preset: 'none',
+			include: ['read'],
+		});
+		expect(result).toHaveLength(1);
+		expect(result[0].name).toBe('read');
+	});
+
+	it('merges readonly preset with exclude override (union of excludes)', () => {
+		const result = applyToolFilter(tools, {
+			preset: 'readonly',
+			exclude: ['read'],
+		});
+		expect(result).toHaveLength(0);
+	});
 });
 
 describe('ToolPack interface', () => {

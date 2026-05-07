@@ -1,7 +1,7 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"title": "OpenExplorer Pack Manifest",
-	"description": "Declarative pack format for OpenExplorer — zero code, configuration + instructions only",
+	"title": "Working Mind Pack Manifest",
+	"description": "Declarative pack format for Working Mind — zero code, configuration + instructions only",
 	"type": "object",
 	"required": ["name", "version", "description", "prompt"],
 	"additionalProperties": false,
@@ -31,9 +31,9 @@
 			"type": "boolean",
 			"default": false
 		},
-		"openexplorerMinVersion": {
+		"wmindMinVersion": {
 			"type": "string",
-			"description": "Minimum OpenExplorer version required"
+			"description": "Minimum Working Mind version required"
 		},
 		"prompt": {
 			"type": "string",
@@ -69,6 +69,15 @@
 				}
 			}
 		},
+		"commands": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string",
+				"pattern": "^commands/[^/]+\\.md$",
+				"description": "Path to command .md file (relative to pack dir)"
+			},
+			"description": "Map of command name to command file path"
+		},
 		"mcpServers": {
 			"type": "object",
 			"additionalProperties": {
@@ -81,16 +90,20 @@
 					"command": {
 						"type": "array",
 						"items": { "type": "string" },
-						"description": "Custom command array (requires --allow-custom-commands)"
+						"description": "Custom command array (supports $CWD, $HOME, $PACK_DIR, $INPUT_DIR)"
 					},
 					"required": {
 						"type": "boolean",
 						"default": false,
-						"description": "Must always be false — all MCP servers are optional"
+						"description": "Must always be false -- all MCP servers are optional"
 					},
 					"capability": {
 						"type": "string",
 						"description": "Human-readable capability this server provides"
+					},
+					"pathPrompt": {
+						"type": "string",
+						"description": "Prompt shown to user when $INPUT_DIR is used and no value is stored"
 					},
 					"env": {
 						"type": "object",

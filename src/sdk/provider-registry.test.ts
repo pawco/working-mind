@@ -9,8 +9,8 @@ import {
 } from './provider-registry.js';
 
 describe('PROVIDERS catalog', () => {
-	it('has 8 providers', () => {
-		expect(PROVIDERS).toHaveLength(8);
+	it('has 9 providers', () => {
+		expect(PROVIDERS).toHaveLength(9);
 	});
 
 	it('each provider has required fields', () => {
@@ -37,6 +37,7 @@ describe('PROVIDERS catalog', () => {
 		'groq',
 		'deepseek',
 		'gemini',
+		'local-fast',
 		'ollama',
 	];
 	it.each(expectedIds)('includes provider %s', (id) => {
@@ -79,6 +80,7 @@ describe('resolveAlias', () => {
 		expect(resolveAlias('best')).toContain('anthropic/');
 		expect(resolveAlias('cheap')).toContain('deepseek/');
 		expect(resolveAlias('local')).toContain('ollama/');
+		expect(resolveAlias('local-fast')).toContain('local-fast/');
 		expect(resolveAlias('smart')).toContain('deepseek/');
 	});
 

@@ -1,10 +1,122 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import stripJsonComments from 'strip-json-comments';
 import type { McpServerConfig, UserConfig } from '../config.js';
+import { loadUserConfig, writeUserConfig } from '../config.js';
+import { parseMcpProjectConfig } from '../schemas.js';
 import type { ToolDef } from '../sdk/tool.js';
 import { mcpToolToToolDef } from './adapter.js';
+import { validateToolReference } from './tool-names.js';
 import { createTransport, type McpTransportResult } from './transport.js';
+
+export function stripSensitiveEnvVars(
+	configs: Record<string, McpServerConfig>,
+): Record<string, McpServerConfig> {
+	const result: Record<string, McpServerConfig> = {};
+	for (const [name, config] of Object.entries(configs)) {
+		const sensitive = new Set(
+			(config.requiredEnvVars || [])
+				.filter((v) => v.sensitive)
+				.map((v) => v.name),
+		);
+		if (sensitive.size === 0 || !config.env) {
+			result[name] = config;
+			continue;
+		}
+		const env: Record<string, string> = {};
+		for (const [key, value] of Object.entries(config.env)) {
+			if (!sensitive.has(key)) {
+				env[key] = value;
+			}
+		}
+		result[name] = { ...config, env };
+	}
+	return result;
+}
+
+export function enrichMcpError(
+	rawMsg: string,
+	command?: string[],
+): string {
+	const KNOWN_PACKAGES = new Set([
+		'@modelcontextprotocol/server-filesystem',
+		'@modelcontextprotocol/server-memory',
+		'@modelcontextprotocol/server-github',
+		'@modelcontextprotocol/server-postgres',
+		'@modelcontextprotocol/server-sqlite',
+		'@modelcontextprotocol/server-google-maps',
+		'@modelcontextprotocol/server-puppeteer',
+		'@modelcontextprotocol/server-slack',
+		'@modelcontextprotocol/server-sequential-thinking',
+		'@brave/brave-search-mcp-server',
+		'firecrawl-mcp',
+		'arxiv-mcp-server',
+		'@upstash/context7-mcp',
+	]);
+
+	if (!rawMsg.includes('-32000') && !rawMsg.includes('Connection closed')) {
+		if (rawMsg.length > 200) return `${rawMsg.slice(0, 200)}...`;
+		return rawMsg;
+	}
+
+	const hints: string[] = [];
+
+	if (command && command[0] === 'npx' && command[1] === '-y') {
+		const pkg = command[2];
+		if (pkg && !KNOWN_PACKAGES.has(pkg)) {
+			hints.push(`Package "${pkg}" is not a known MCP server. Check the package name or remove this server from config.`);
+		}
+	}
+
+	if (rawMsg.includes('Python 3') || rawMsg.includes('python')) {
+		hints.push('This server requires Python. Install Python 3.11+ or remove the server.');
+	}
+
+	if (rawMsg.includes('E404') || rawMsg.includes('Not Found') || rawMsg.includes('not found')) {
+		hints.push('The npm package was not found. Check the package name in your config.');
+	}
+
+	if (rawMsg.includes('allowed directory') || rawMsg.includes('Allowed directories')) {
+		hints.push('The filesystem server needs valid directory paths. Check $INPUT_DIR or $CWD in the command.');
+	}
+
+	if (hints.length === 0) {
+		hints.push('Server exited unexpectedly. This usually means a missing API key, dependency, or wrong package name.');
+	}
+
+	const shortMsg = rawMsg.includes('-32000') ? 'MCP error -32000' : 'Connection closed';
+	return `${shortMsg} -- ${hints.join(' ')}`;
+}
+
+export function substituteCommandVars(
+	command: string[],
+	config: McpServerConfig,
+): { args: string[]; unresolvedVars: string[] } {
+	const unresolved: string[] = [];
+	const args = command.map((arg) => {
+		if (arg === '$CWD') return process.cwd();
+		if (arg === '$HOME') return homedir();
+		if (arg === '$PACK_DIR' && config.packDir) return config.packDir;
+		if (arg === '$INPUT_DIR') {
+			if (config.env?.INPUT_DIR) return config.env.INPUT_DIR;
+			unresolved.push('$INPUT_DIR');
+			return arg;
+		}
+		if (arg.includes('$CWD')) return arg.replace(/\$CWD/g, process.cwd());
+		if (arg.includes('$HOME')) return arg.replace(/\$HOME/g, homedir());
+		if (arg.includes('$PACK_DIR') && config.packDir)
+			return arg.replace(/\$PACK_DIR/g, config.packDir);
+		if (arg.includes('$INPUT_DIR')) {
+			if (config.env?.INPUT_DIR)
+				return arg.replace(/\$INPUT_DIR/g, config.env.INPUT_DIR);
+			unresolved.push('$INPUT_DIR');
+			return arg;
+		}
+		return arg;
+	});
+	return { args, unresolvedVars: unresolved };
+}
 
 export interface McpServerInfo {
 	name: string;
@@ -74,14 +186,14 @@ export class McpRegistry {
 	private loadProjectMcpJson(): Record<string, McpServerConfig> {
 		const candidates = [
 			join(process.cwd(), '.mcp.json'),
-			join(process.cwd(), '.openexplorer', 'mcp.json'),
+			join(process.cwd(), '.wmind', 'mcp.json'),
 		];
 		for (const path of candidates) {
 			if (existsSync(path)) {
 				try {
 					const raw = readFileSync(path, 'utf-8');
 					const parsed = JSON.parse(stripJsonComments(raw));
-					return parsed.mcpServers || {};
+					return parseMcpProjectConfig(parsed);
 				} catch {
 					/* skip malformed */
 				}
@@ -164,7 +276,7 @@ export class McpRegistry {
 		this.notify();
 	}
 
-	async connect(name: string): Promise<void> {
+	async connect(name: string, signal?: AbortSignal): Promise<void> {
 		const conn = this.connections.get(name);
 		if (!conn) throw new Error(`MCP server "${name}" not found`);
 		if (conn.status === 'connected') return;
@@ -182,20 +294,68 @@ export class McpRegistry {
 		conn.error = undefined;
 		this.notify();
 
+		const resolvedConfig = { ...conn.config };
 		try {
-			const transport = await createTransport(name, conn.config);
+			if (resolvedConfig.command) {
+				const subbed = substituteCommandVars(
+					resolvedConfig.command,
+					resolvedConfig,
+				);
+				resolvedConfig.command = subbed.args;
+				if (subbed.unresolvedVars.length > 0) {
+					conn.status = 'error';
+					conn.error = `Unresolved variable(s) in command: ${subbed.unresolvedVars.join(', ')}. Use /mcp-connect to provide required values.`;
+					conn.tools = [];
+					this.notify();
+					return;
+				}
+			}
+			const transport = await createTransport(name, resolvedConfig);
+			if (signal?.aborted) {
+				await transport.close();
+				conn.status = 'error';
+				conn.error = `Connection timed out after ${this.CONNECTION_TIMEOUT_MS / 1000}s`;
+				conn.tools = [];
+				this.notify();
+				return;
+			}
 			const toolsResult = await transport.client.listTools();
 			const mcpTools = toolsResult.tools || [];
+
+			if (signal?.aborted) {
+				await transport.close();
+				conn.status = 'error';
+				conn.error = `Connection timed out after ${this.CONNECTION_TIMEOUT_MS / 1000}s`;
+				conn.tools = [];
+				this.notify();
+				return;
+			}
 
 			conn.tools = mcpTools.map((t) =>
 				mcpToolToToolDef(name, t, transport.client),
 			);
 			conn.transport = transport;
 			conn.status = 'connected';
+
+			transport.client.onclose = () => {
+				if (conn.status === 'connected') {
+					conn.status = 'error';
+					conn.error = 'Connection closed unexpectedly';
+					conn.tools = [];
+					conn.transport = null;
+					this.notify();
+				}
+			};
 		} catch (err: any) {
-			conn.status = 'error';
-			conn.error = err.message || String(err);
-			conn.tools = [];
+			if (signal?.aborted) {
+				conn.status = 'error';
+				conn.error = `Connection timed out after ${this.CONNECTION_TIMEOUT_MS / 1000}s`;
+				conn.tools = [];
+			} else {
+				conn.status = 'error';
+				conn.error = enrichMcpError(err.message || String(err), resolvedConfig.command);
+				conn.tools = [];
+			}
 		}
 
 		this.notify();
@@ -203,10 +363,14 @@ export class McpRegistry {
 
 	async connectWithTimeout(name: string, timeoutMs?: number): Promise<void> {
 		const ms = timeoutMs ?? this.CONNECTION_TIMEOUT_MS;
+		const controller = new AbortController();
 		const result = await Promise.race([
-			this.connect(name),
+			this.connect(name, controller.signal),
 			new Promise<'timeout'>((resolve) =>
-				setTimeout(() => resolve('timeout'), ms),
+				setTimeout(() => {
+					controller.abort();
+					resolve('timeout');
+				}, ms),
 			),
 		]);
 		if (result === 'timeout') {
@@ -290,6 +454,14 @@ export class McpRegistry {
 		return result;
 	}
 
+	persistMcpConfigs(): void {
+		const configs = this.getConfigs();
+		if (Object.keys(configs).length === 0) return;
+		const uc = loadUserConfig();
+		uc.mcpServers = stripSensitiveEnvVars(configs);
+		writeUserConfig(uc);
+	}
+
 	async reconnectMemoryStore(
 		_storeName: string,
 		storePath: string,
@@ -341,5 +513,27 @@ export class McpRegistry {
 				error: err.message || String(err),
 			};
 		}
+	}
+
+	validateToolReferences(
+		allowedToolsLists: Array<{ source: string; tools: string[] }>,
+	): string[] {
+		const connectedTools = this.getTools().map((t) => t.name);
+		const warnings: string[] = [];
+
+		for (const { source, tools } of allowedToolsLists) {
+			for (const toolRef of tools) {
+				if (toolRef.endsWith('*')) continue;
+				const result = validateToolReference(toolRef, connectedTools);
+				if (!result.valid) {
+					const hint = result.suggestion
+						? ` (did you mean ${result.suggestion}?)`
+						: '';
+					warnings.push(`${source}: unknown tool "${toolRef}"${hint}`);
+				}
+			}
+		}
+
+		return warnings;
 	}
 }

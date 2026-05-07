@@ -1,8 +1,12 @@
-import { Box, Text } from 'ink';
-import { forwardRef, useCallback, useImperativeHandle, useState } from 'react';
+import {
+	forwardRef,
+	createElement as h,
+	useCallback,
+	useImperativeHandle,
+	useState,
+} from 'react';
 import type { McpEnvVarDef, McpServerConfig } from './config.js';
 import { loadUserConfig, writeUserConfig } from './config.js';
-import { storeKey } from './keychain.js';
 import type { McpRegistry, McpServerInfo } from './mcp/registry.js';
 
 type WizardStep =
@@ -17,7 +21,9 @@ type WizardStep =
 			serverName: string;
 			envName: string;
 			envLabel: string;
+			sensitive: boolean;
 			input: string;
+			masked: string;
 	  }
 	| { id: 'filesystem-dirs'; input: string }
 	| { id: 'connecting'; name: string }
@@ -28,8 +34,15 @@ type WizardStep =
 
 import { KNOWN_SERVERS, type KnownServer } from './mcp-catalog.js';
 
+const MASK_CHAR = '\u2022';
+
+function maskInput(input: string): string {
+	return MASK_CHAR.repeat(input.length);
+}
+
 export interface McpWizardHandle {
 	handleKey: (inputChar: string, key: any) => void;
+	handlePaste: (text: string) => void;
 }
 
 export interface ReconnectTarget {
@@ -57,7 +70,9 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 					serverName: reconnectTarget.serverName,
 					envName: first.name,
 					envLabel: first.label,
+					sensitive: first.sensitive ?? true,
 					input: '',
+					masked: '',
 				};
 			}
 			return { id: 'mode', cursor: 0 };
@@ -68,7 +83,7 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 		const [wizardServer, setWizardServer] = useState<KnownServer | null>(null);
 		const [customType, setCustomType] = useState<'local' | 'remote'>('local');
 		const [envQueue, setEnvQueue] = useState<
-			{ name: string; label: string; required: boolean }[]
+			{ name: string; label: string; required: boolean; sensitive?: boolean }[]
 		>(() => {
 			if (reconnectTarget && reconnectTarget.requiredEnvVars.length > 1) {
 				return reconnectTarget.requiredEnvVars.slice(1);
@@ -153,7 +168,9 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 						serverName: name,
 						envName: next.name,
 						envLabel: next.label,
+						sensitive: true,
 						input: '',
+						masked: '',
 					});
 				}
 			},
@@ -164,7 +181,7 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 			(
 				name: string,
 				envSoFar: Record<string, string>,
-				queue: { name: string; label: string; required: boolean }[],
+				queue: { name: string; label: string; required: boolean; sensitive?: boolean }[],
 			) => {
 				while (queue.length > 0 && process.env[queue[0].name]) {
 					const val = process.env[queue[0].name];
@@ -209,7 +226,9 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 					serverName: name,
 					envName: next.name,
 					envLabel: next.label,
+					sensitive: next.sensitive ?? true,
 					input: '',
+					masked: '',
 				});
 			},
 			[doConnect, mcpRegistry, onDone, reconnectTarget?.requiredEnvVars],
@@ -449,9 +468,6 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 							const newEnv = { ...envCollected };
 							if (val) {
 								newEnv[s.envName] = val;
-								storeKey(`mcp-${s.serverName}-${s.envName}`, val).catch(
-									() => {},
-								);
 							}
 							reconnectAdvance(s.serverName, newEnv, envQueue);
 							return;
@@ -466,17 +482,26 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 						const newEnv = { ...envCollected };
 						if (val) {
 							newEnv[s.envName] = val;
-							storeKey(`mcp-${s.serverName}-${s.envName}`, val).catch(() => {});
 						}
 						advanceEnvOrConnect(s.serverName, sv, newEnv, envQueue);
 						return;
 					}
 					if (key.backspace) {
-						setStep({ ...s, input: s.input.slice(0, -1) });
+						const newInput = s.input.slice(0, -1);
+						setStep({
+							...s,
+							input: newInput,
+							masked: s.sensitive ? maskInput(newInput) : newInput,
+						});
 						return;
 					}
 					if (!key.ctrl && !key.meta && inputChar) {
-						setStep({ ...s, input: s.input + inputChar });
+						const newInput = s.input + inputChar;
+						setStep({
+							...s,
+							input: newInput,
+							masked: s.sensitive ? maskInput(newInput) : newInput,
+						});
 					}
 					return;
 				}
@@ -593,21 +618,53 @@ export const McpWizard = forwardRef<McpWizardHandle, McpWizardProps>(
 			],
 		);
 
-		useImperativeHandle(ref, () => ({ handleKey }), [handleKey]);
+		const handlePaste = useCallback(
+			(text: string) => {
+				const s = step;
+				if (
+					s.id === 'custom-name' ||
+					s.id === 'custom-local-command' ||
+					s.id === 'custom-remote-url' ||
+					s.id === 'filesystem-dirs'
+				) {
+					setStep({
+						...s,
+						input: s.input + text,
+						...(s.id !== 'filesystem-dirs' ? { error: '' } : {}),
+					});
+				}
+				if (s.id === 'env-prompt') {
+					const newInput = s.input + text;
+					setStep({
+						...s,
+						input: newInput,
+						masked: s.sensitive ? maskInput(newInput) : newInput,
+					});
+				}
+			},
+			[step],
+		);
 
-		return (
-			<Box
-				flexDirection="column"
-				flexGrow={1}
-				backgroundColor="#0a0a1a"
-				paddingX={2}
-				paddingY={1}
-			>
-				{renderStep(step, mcpRegistry)}
-				<Box marginTop={1}>
-					<Text dimColor>Esc = back · Enter = confirm</Text>
-				</Box>
-			</Box>
+		useImperativeHandle(ref, () => ({ handleKey, handlePaste }), [
+			handleKey,
+			handlePaste,
+		]);
+
+		return h(
+			'box',
+			{
+				flexDirection: 'column',
+				flexGrow: 1,
+				backgroundColor: '#0a0a1a',
+				paddingX: 2,
+				paddingY: 1,
+			},
+			renderStep(step, mcpRegistry),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { dimColor: true, content: 'Esc = back · Enter = confirm' }),
+			),
 		);
 	},
 );
@@ -619,73 +676,67 @@ function renderStep(s: WizardStep, mcpRegistry: McpRegistry): React.ReactNode {
 			'Add custom server',
 			'Remove a server',
 		];
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					MCP Server Setup
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text dimColor>↑↓ navigate · Enter select · or press 1-3</Text>
-				<Box flexDirection="column" marginTop={1}>
-					{options.map((label, i) => (
-						<Box key={label}>
-							{s.cursor === i ? (
-								<Text color="cyan" bold>
-									{'▸ '}
-								</Text>
-							) : (
-								<Text dimColor>{'  '}</Text>
-							)}
-							<Text color="green">{i + 1} </Text>
-							<Text
-								bold={s.cursor === i}
-								color={s.cursor === i ? 'white' : 'gray'}
-							>
-								{label}
-							</Text>
-						</Box>
-					))}
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'MCP Server Setup' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', {
+				dimColor: true,
+				content: '↑↓ navigate · Enter select · or press 1-3',
+			}),
+			h(
+				'box',
+				{ flexDirection: 'column', marginTop: 1 },
+				options.map((label, i) =>
+					h(
+						'box',
+						{ key: label },
+						s.cursor === i
+							? h('text', { fg: 'cyan', bold: true, content: '▸ ' })
+							: h('text', { dimColor: true, content: '  ' }),
+						h('text', { fg: 'green', content: `${i + 1} ` }),
+						h('text', {
+							bold: s.cursor === i,
+							fg: s.cursor === i ? 'white' : 'gray',
+							content: label,
+						}),
+					),
+				),
+			),
 		);
 	}
 
 	if (s.id === 'catalog') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Add MCP Server
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text dimColor>↑↓ navigate · Enter select</Text>
-				<Box flexDirection="column" marginTop={1}>
-					{KNOWN_SERVERS.map((srv, i) => (
-						<Box key={srv.id}>
-							{s.cursor === i ? (
-								<Text color="cyan" bold>
-									{'▸ '}
-								</Text>
-							) : (
-								<Text dimColor>{'  '}</Text>
-							)}
-							<Text
-								bold={s.cursor === i}
-								color={s.cursor === i ? 'white' : 'gray'}
-							>
-								{srv.name}
-							</Text>
-							<Text dimColor> — {srv.description}</Text>
-							{srv.envVars.length > 0 && (
-								<Text dimColor color="yellow">
-									{' '}
-									*
-								</Text>
-							)}
-						</Box>
-					))}
-				</Box>
-				<Text dimColor>* requires API key</Text>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Add MCP Server' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', { dimColor: true, content: '↑↓ navigate · Enter select' }),
+			h(
+				'box',
+				{ flexDirection: 'column', marginTop: 1 },
+				KNOWN_SERVERS.map((srv, i) =>
+					h(
+						'box',
+						{ key: srv.id },
+						s.cursor === i
+							? h('text', { fg: 'cyan', bold: true, content: '▸ ' })
+							: h('text', { dimColor: true, content: '  ' }),
+						h('text', {
+							bold: s.cursor === i,
+							fg: s.cursor === i ? 'white' : 'gray',
+							content: srv.name,
+						}),
+						h('text', { dimColor: true, content: ` — ${srv.description}` }),
+						srv.envVars.length > 0
+							? h('text', { dimColor: true, fg: 'yellow', content: ' *' })
+							: null,
+					),
+				),
+			),
+			h('text', { dimColor: true, content: '* requires API key' }),
 		);
 	}
 
@@ -694,232 +745,262 @@ function renderStep(s: WizardStep, mcpRegistry: McpRegistry): React.ReactNode {
 			{ label: 'Local (runs via npx/command)', value: 'local' as const },
 			{ label: 'Remote (SSE/HTTP URL)', value: 'remote' as const },
 		];
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Custom Server
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text dimColor>↑↓ navigate · Enter select · or press 1-2</Text>
-				<Box flexDirection="column" marginTop={1}>
-					{options.map((opt, i) => (
-						<Box key={opt.value}>
-							{s.cursor === i ? (
-								<Text color="cyan" bold>
-									{'▸ '}
-								</Text>
-							) : (
-								<Text dimColor>{'  '}</Text>
-							)}
-							<Text color="green">{i + 1} </Text>
-							<Text
-								bold={s.cursor === i}
-								color={s.cursor === i ? 'white' : 'gray'}
-							>
-								{opt.label}
-							</Text>
-						</Box>
-					))}
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Custom Server' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', {
+				dimColor: true,
+				content: '↑↓ navigate · Enter select · or press 1-2',
+			}),
+			h(
+				'box',
+				{ flexDirection: 'column', marginTop: 1 },
+				options.map((opt, i) =>
+					h(
+						'box',
+						{ key: opt.value },
+						s.cursor === i
+							? h('text', { fg: 'cyan', bold: true, content: '▸ ' })
+							: h('text', { dimColor: true, content: '  ' }),
+						h('text', { fg: 'green', content: `${i + 1} ` }),
+						h('text', {
+							bold: s.cursor === i,
+							fg: s.cursor === i ? 'white' : 'gray',
+							content: opt.label,
+						}),
+					),
+				),
+			),
 		);
 	}
 
 	if (s.id === 'custom-name') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Custom Server — Name
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Box marginTop={1}>
-					<Text color="white">Name: </Text>
-					<Text color="cyan">{s.input}</Text>
-					<Text dimColor>▍</Text>
-				</Box>
-				{s.error && <Text color="red">{s.error}</Text>}
-				<Text dimColor>lowercase, numbers, hyphens</Text>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Custom Server — Name' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { fg: 'white', content: 'Name: ' }),
+				h('text', { fg: 'cyan', content: s.input }),
+				h('text', { dimColor: true, content: '▍' }),
+			),
+			s.error ? h('text', { fg: 'red', content: s.error }) : null,
+			h('text', { dimColor: true, content: 'lowercase, numbers, hyphens' }),
 		);
 	}
 
 	if (s.id === 'custom-local-command') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Custom Local — Command
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text dimColor>Server: {s.name}</Text>
-				<Box marginTop={1}>
-					<Text color="white">Command: </Text>
-					<Text color="cyan">{s.input}</Text>
-					<Text dimColor>▍</Text>
-				</Box>
-				{s.error && <Text color="red">{s.error}</Text>}
-				<Text dimColor>e.g. npx -y @modelcontextprotocol/server-foobar</Text>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Custom Local — Command' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', { dimColor: true, content: `Server: ${s.name}` }),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { fg: 'white', content: 'Command: ' }),
+				h('text', { fg: 'cyan', content: s.input }),
+				h('text', { dimColor: true, content: '▍' }),
+			),
+			s.error ? h('text', { fg: 'red', content: s.error }) : null,
+			h('text', {
+				dimColor: true,
+				content: 'e.g. npx -y @modelcontextprotocol/server-foobar',
+			}),
 		);
 	}
 
 	if (s.id === 'custom-remote-url') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Custom Remote — URL
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text dimColor>Server: {s.name}</Text>
-				<Box marginTop={1}>
-					<Text color="white">URL: </Text>
-					<Text color="cyan">{s.input}</Text>
-					<Text dimColor>▍</Text>
-				</Box>
-				{s.error && <Text color="red">{s.error}</Text>}
-				<Text dimColor>e.g. https://mcp.example.com/sse</Text>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Custom Remote — URL' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', { dimColor: true, content: `Server: ${s.name}` }),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { fg: 'white', content: 'URL: ' }),
+				h('text', { fg: 'cyan', content: s.input }),
+				h('text', { dimColor: true, content: '▍' }),
+			),
+			s.error ? h('text', { fg: 'red', content: s.error }) : null,
+			h('text', {
+				dimColor: true,
+				content: 'e.g. https://mcp.example.com/sse',
+			}),
 		);
 	}
 
 	if (s.id === 'env-prompt') {
 		const hasExisting = process.env[s.envName];
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					API Key Required
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text dimColor>Server: {s.serverName}</Text>
-				<Box marginTop={1}>
-					<Text color="white">{s.envLabel}: </Text>
-					<Text color="cyan">{s.input}</Text>
-					<Text dimColor>▍</Text>
-				</Box>
-				{hasExisting && (
-					<Text dimColor color="green">
-						Found {s.envName} in env (will auto-use if blank)
-					</Text>
-				)}
-			</Box>
+		const displayInput = s.sensitive ? s.masked : s.input;
+		const header = s.sensitive ? 'API Key Required' : 'Configuration Required';
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: header }),
+			h('text', {
+				dimColor: true,
+				content:
+					'\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500',
+			}),
+			h('text', { dimColor: true, content: `Server: ${s.serverName}` }),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { fg: 'white', content: `${s.envLabel}: ` }),
+				h('text', { fg: 'cyan', content: displayInput }),
+				h('text', { dimColor: true, content: '\u258d' }),
+			),
+			hasExisting
+				? h('text', {
+						dimColor: true,
+						fg: 'green',
+						content: `Found ${s.envName} in env (will auto-use if blank)`,
+					})
+				: null,
+			!s.sensitive
+				? h('text', { dimColor: true, content: `e.g. ${process.cwd()}` })
+				: null,
 		);
 	}
 
 	if (s.id === 'filesystem-dirs') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Filesystem — Allowed Directories
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Box marginTop={1}>
-					<Text color="white">Dirs: </Text>
-					<Text color="cyan">{s.input}</Text>
-					<Text dimColor>▍</Text>
-				</Box>
-				<Text dimColor>Comma-separated · blank = {process.cwd()}</Text>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', {
+				bold: true,
+				fg: 'cyan',
+				content: 'Filesystem — Allowed Directories',
+			}),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { fg: 'white', content: 'Dirs: ' }),
+				h('text', { fg: 'cyan', content: s.input }),
+				h('text', { dimColor: true, content: '▍' }),
+			),
+			h('text', {
+				dimColor: true,
+				content: `Comma-separated · blank = ${process.cwd()}`,
+			}),
 		);
 	}
 
 	if (s.id === 'connecting') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Connecting...
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text color="yellow">⏳ Connecting to "{s.name}"...</Text>
-				<Text dimColor>First-time npx may take a moment</Text>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Connecting...' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', { fg: 'yellow', content: `⏳ Connecting to "${s.name}"...` }),
+			h('text', {
+				dimColor: true,
+				content: 'First-time npx may take a moment',
+			}),
 		);
 	}
 
 	if (s.id === 'connected') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="green">
-					Connected!
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text color="green">
-					✓ "{s.name}" — {s.tools.length} tools
-				</Text>
-				<Box flexDirection="column" paddingLeft={2}>
-					{s.tools.slice(0, 10).map((t) => (
-						<Text key={t} dimColor>
-							· {t}
-						</Text>
-					))}
-					{s.tools.length > 10 && (
-						<Text dimColor> +{s.tools.length - 10} more</Text>
-					)}
-				</Box>
-				<Box marginTop={1}>
-					<Text dimColor>Press Enter to continue</Text>
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'green', content: 'Connected!' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', {
+				fg: 'green',
+				content: `✓ "${s.name}" — ${s.tools.length} tools`,
+			}),
+			h(
+				'box',
+				{ flexDirection: 'column', paddingLeft: 2 },
+				s.tools
+					.slice(0, 10)
+					.map((t) => h('text', { key: t, dimColor: true, content: `· ${t}` })),
+				s.tools.length > 10
+					? h('text', {
+							dimColor: true,
+							content: ` +${s.tools.length - 10} more`,
+						})
+					: null,
+			),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { dimColor: true, content: 'Press Enter to continue' }),
+			),
 		);
 	}
 
 	if (s.id === 'error') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="red">
-					Connection Failed
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text color="red">✗ "{s.name}"</Text>
-				<Text color="red">{s.error}</Text>
-				<Box marginTop={1}>
-					<Text dimColor>Press Enter to continue</Text>
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'red', content: 'Connection Failed' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', { fg: 'red', content: `✗ "${s.name}"` }),
+			h('text', { fg: 'red', content: s.error }),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { dimColor: true, content: 'Press Enter to continue' }),
+			),
 		);
 	}
 
 	if (s.id === 'remove-select') {
 		const servers = mcpRegistry.listServers();
-		return (
-			<Box flexDirection="column">
-				<Text bold color="cyan">
-					Remove MCP Server
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text dimColor>↑↓ navigate · Enter remove · Esc cancel</Text>
-				<Box flexDirection="column" marginTop={1}>
-					{servers.map((srv, i) => (
-						<Box key={srv.name}>
-							{s.cursor === i ? (
-								<Text color="red" bold>
-									{'▸ '}
-								</Text>
-							) : (
-								<Text dimColor>{'  '}</Text>
-							)}
-							<Text bold={s.cursor === i}>{srv.name}</Text>
-							<Text dimColor>
-								{' '}
-								({srv.type}, {srv.status})
-							</Text>
-						</Box>
-					))}
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'cyan', content: 'Remove MCP Server' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', {
+				dimColor: true,
+				content: '↑↓ navigate · Enter remove · Esc cancel',
+			}),
+			h(
+				'box',
+				{ flexDirection: 'column', marginTop: 1 },
+				servers.map((srv, i) =>
+					h(
+						'box',
+						{ key: srv.name },
+						s.cursor === i
+							? h('text', { fg: 'red', bold: true, content: '▸ ' })
+							: h('text', { dimColor: true, content: '  ' }),
+						h('text', { bold: s.cursor === i, content: srv.name }),
+						h('text', {
+							dimColor: true,
+							content: ` (${srv.type}, ${srv.status})`,
+						}),
+					),
+				),
+			),
 		);
 	}
 
 	if (s.id === 'removed') {
-		return (
-			<Box flexDirection="column">
-				<Text bold color="green">
-					Removed
-				</Text>
-				<Text dimColor>────────────────────</Text>
-				<Text color="green">✓ "{s.name}" removed</Text>
-				<Box marginTop={1}>
-					<Text dimColor>Press Enter to continue</Text>
-				</Box>
-			</Box>
+		return h(
+			'box',
+			{ flexDirection: 'column' },
+			h('text', { bold: true, fg: 'green', content: 'Removed' }),
+			h('text', { dimColor: true, content: '────────────────────' }),
+			h('text', { fg: 'green', content: `✓ "${s.name}" removed` }),
+			h(
+				'box',
+				{ marginTop: 1 },
+				h('text', { dimColor: true, content: 'Press Enter to continue' }),
+			),
 		);
 	}
 

@@ -1,12 +1,26 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { mkdirSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const TMP_DIR = join('/tmp', `oe-md-test-${Date.now()}`);
+
+vi.mock('../paths.js', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('../paths.js')>();
+	return {
+		...actual,
+		getConfigDir: () => TMP_DIR,
+	};
+});
+
 import {
 	clearDiscoveryCache,
+	clearDiskCache,
+	type DiscoveredModel,
+	fetchOllamaModels,
 	fetchRemoteModels,
 	mergeModels,
-	getMergedModels,
-	type DiscoveredModel,
 } from './model-discovery.js';
-import type { ModelEntry, ProviderEntry } from './provider-registry.js';
+import type { ProviderEntry } from './provider-registry.js';
 
 const mockProvider: ProviderEntry = {
 	id: 'test-provider',
@@ -43,6 +57,40 @@ const mockProvider: ProviderEntry = {
 		},
 	],
 };
+
+const ollamaProvider: ProviderEntry = {
+	id: 'ollama',
+	displayName: 'Ollama (Local)',
+	baseUrl: 'http://localhost:11434',
+	apiFormat: 'ollama',
+	envVar: '',
+	needsApiKey: false,
+	canValidate: false,
+	modelIdFormat: 'provider-prefix',
+	modelPrefixes: [],
+	isPrimary: true,
+	authStyle: 'none',
+	website: 'https://ollama.ai',
+	models: [
+		{
+			id: 'gemma4',
+			displayName: 'Gemma 4',
+			contextWindow: 262000,
+			inputPricePer1M: 0,
+			outputPricePer1M: 0,
+			supportsReasoning: true,
+			supportsToolCalling: true,
+		},
+	],
+};
+
+beforeEach(() => {
+	mkdirSync(TMP_DIR, { recursive: true });
+});
+
+afterEach(() => {
+	rmSync(TMP_DIR, { recursive: true, force: true });
+});
 
 describe('mergeModels', () => {
 	it('returns curated models when no discovered models', () => {
@@ -106,6 +154,7 @@ describe('mergeModels', () => {
 describe('fetchRemoteModels', () => {
 	beforeEach(() => {
 		clearDiscoveryCache();
+		clearDiskCache();
 	});
 
 	it('returns empty for provider without canValidate', () => {
@@ -188,9 +237,9 @@ describe('fetchRemoteModels', () => {
 	});
 
 	it('returns empty on network error', async () => {
-		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(
-			new Error('Network error'),
-		);
+		const fetchSpy = vi
+			.spyOn(globalThis, 'fetch')
+			.mockRejectedValue(new Error('Network error'));
 
 		const result = await fetchRemoteModels(mockProvider, 'test-key');
 		expect(result).toEqual([]);
@@ -219,6 +268,7 @@ describe('fetchRemoteModels', () => {
 describe('clearDiscoveryCache', () => {
 	beforeEach(() => {
 		clearDiscoveryCache();
+		clearDiskCache();
 	});
 
 	it('clears specific provider cache', async () => {
@@ -233,6 +283,7 @@ describe('clearDiscoveryCache', () => {
 
 		await fetchRemoteModels(mockProvider, 'test-key');
 		clearDiscoveryCache('test-provider');
+		clearDiskCache('test-provider');
 		await fetchRemoteModels(mockProvider, 'test-key');
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 
@@ -251,9 +302,126 @@ describe('clearDiscoveryCache', () => {
 
 		await fetchRemoteModels(mockProvider, 'test-key');
 		clearDiscoveryCache();
+		clearDiskCache();
 		await fetchRemoteModels(mockProvider, 'test-key');
 		expect(fetchSpy).toHaveBeenCalledTimes(2);
 
 		fetchSpy.mockRestore();
+	});
+});
+
+describe('fetchOllamaModels', () => {
+	it('fetches models from /api/tags', async () => {
+		const mockResponse = {
+			models: [
+				{ name: 'llama3:latest', size: 4661225079 },
+				{ name: 'gemma4', size: 2000000000 },
+			],
+		};
+		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve(mockResponse),
+		} as Response);
+
+		const result = await fetchOllamaModels('http://localhost:11434');
+		expect(result).toHaveLength(2);
+		expect(result[0].id).toBe('gemma4');
+		expect(result[1].id).toBe('llama3');
+		expect(result[0].ownedBy).toBe('ollama');
+		expect(result[0].inputPricePer1M).toBe(0);
+		expect(result[0].outputPricePer1M).toBe(0);
+
+		fetchSpy.mockRestore();
+	});
+
+	it('strips :latest suffix from model names', async () => {
+		const mockResponse = {
+			models: [{ name: 'llama3:latest', size: 1000 }],
+		};
+		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve(mockResponse),
+		} as Response);
+
+		const result = await fetchOllamaModels('http://localhost:11434');
+		expect(result[0].id).toBe('llama3');
+
+		fetchSpy.mockRestore();
+	});
+
+	it('returns empty on non-ok response', async () => {
+		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+			ok: false,
+			status: 500,
+		} as Response);
+
+		const result = await fetchOllamaModels('http://localhost:11434');
+		expect(result).toEqual([]);
+
+		fetchSpy.mockRestore();
+	});
+
+	it('returns empty on network error', async () => {
+		const fetchSpy = vi
+			.spyOn(globalThis, 'fetch')
+			.mockRejectedValue(new Error('Connection refused'));
+
+		const result = await fetchOllamaModels('http://localhost:11434');
+		expect(result).toEqual([]);
+
+		fetchSpy.mockRestore();
+	});
+});
+
+describe('fetchRemoteModels with ollama', () => {
+	beforeEach(() => {
+		clearDiscoveryCache();
+		clearDiskCache();
+	});
+
+	it('uses ollama endpoint for ollama provider', async () => {
+		const mockResponse = {
+			models: [{ name: 'qwen3:32b', size: 2000000000 }],
+		};
+		const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+			ok: true,
+			json: () => Promise.resolve(mockResponse),
+		} as Response);
+
+		const result = await fetchRemoteModels(ollamaProvider, '');
+		expect(result).toHaveLength(1);
+		expect(result[0].id).toBe('qwen3:32b');
+		expect(fetchSpy).toHaveBeenCalledWith(
+			'http://localhost:11434/api/tags',
+			expect.objectContaining({ signal: expect.any(AbortSignal) }),
+		);
+
+		fetchSpy.mockRestore();
+	});
+
+	it('returns empty for ollama when not running', async () => {
+		const fetchSpy = vi
+			.spyOn(globalThis, 'fetch')
+			.mockRejectedValue(new Error('Connection refused'));
+
+		const result = await fetchRemoteModels(ollamaProvider, '');
+		expect(result).toEqual([]);
+
+		fetchSpy.mockRestore();
+	});
+});
+
+describe('clearDiskCache', () => {
+	beforeEach(() => {
+		clearDiscoveryCache();
+		clearDiskCache();
+	});
+
+	it('does not throw when no cache file exists', () => {
+		expect(() => clearDiskCache()).not.toThrow();
+	});
+
+	it('does not throw when clearing specific provider with no cache file', () => {
+		expect(() => clearDiskCache('test-provider')).not.toThrow();
 	});
 });

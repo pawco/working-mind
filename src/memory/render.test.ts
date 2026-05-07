@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import type { MemoryGraph } from './render.js';
 import {
 	filterGraph,
 	formatStoreList,
 	getActiveStoreName,
 	listMemoryStores,
+	type MemoryStoreInfo,
 	parseMemoryJsonl,
 	searchAcrossStores,
 	toAsciiGraph,
@@ -11,9 +13,7 @@ import {
 	toMermaid,
 	toStats,
 	toTreeView,
-	type MemoryStoreInfo,
 } from './render.js';
-import type { MemoryGraph } from './render.js';
 
 const sampleJsonl = [
 	'{"type":"entity","name":"Svelte","entityType":"technology","observations":["compiler-based","runes in v5"]}',
@@ -41,7 +41,11 @@ const sampleGraph: MemoryGraph = {
 			entityType: 'technology',
 			observations: ['composition API'],
 		},
-		{ name: 'Alex', entityType: 'person', observations: ['prefers TypeScript'] },
+		{
+			name: 'Alex',
+			entityType: 'person',
+			observations: ['prefers TypeScript'],
+		},
 	],
 	relations: [
 		{ from: 'Svelte', to: 'React', relationType: 'competes_with' },
@@ -63,7 +67,7 @@ describe('parseMemoryJsonl', () => {
 	});
 
 	it('skips malformed lines', () => {
-		const input = sampleJsonl + '\nnot-json\n{"type":"entity"';
+		const input = `${sampleJsonl}\nnot-json\n{"type":"entity"`;
 		const graph = parseMemoryJsonl(input);
 		expect(graph.entities).toHaveLength(4);
 		expect(graph.relations).toHaveLength(2);
@@ -225,32 +229,32 @@ describe('toStats', () => {
 		expect(result).toContain('6 observations');
 		expect(result).toContain('technology: 3');
 		expect(result).toContain('person: 1');
-	})
+	});
 
 	it('reports isolated entities', () => {
 		const result = toStats(sampleGraph);
 		expect(result).toContain('1 isolated');
-	})
+	});
 
 	it('handles empty graph', () => {
 		const result = toStats({ entities: [], relations: [] });
 		expect(result).toContain('empty');
-	})
-})
+	});
+});
 
 describe('getActiveStoreName', () => {
 	it('returns "default" when no config provided', () => {
 		expect(getActiveStoreName()).toBe('default');
-	})
+	});
 
 	it('returns "default" when config has no lastMemoryStore', () => {
 		expect(getActiveStoreName({})).toBe('default');
-	})
+	});
 
 	it('returns the configured store name', () => {
 		expect(getActiveStoreName({ lastMemoryStore: 'kitchen' })).toBe('kitchen');
-	})
-})
+	});
+});
 
 describe('searchAcrossStores', () => {
 	it('returns zero matches for stores with no entities', () => {
@@ -258,14 +262,28 @@ describe('searchAcrossStores', () => {
 		for (const r of results) {
 			expect(r.matches).toBe(0);
 		}
-	})
-})
+	});
+});
 
 describe('formatStoreList', () => {
 	it('formats stores with active marker', () => {
 		const stores: MemoryStoreInfo[] = [
-			{ name: 'default', path: '/tmp/default.jsonl', entityCount: 12, relationCount: 5, observationCount: 32, exists: true },
-			{ name: 'kitchen', path: '/tmp/kitchen.jsonl', entityCount: 0, relationCount: 0, observationCount: 0, exists: false },
+			{
+				name: 'default',
+				path: '/tmp/default.jsonl',
+				entityCount: 12,
+				relationCount: 5,
+				observationCount: 32,
+				exists: true,
+			},
+			{
+				name: 'kitchen',
+				path: '/tmp/kitchen.jsonl',
+				entityCount: 0,
+				relationCount: 0,
+				observationCount: 0,
+				exists: false,
+			},
 		];
 		const result = formatStoreList(stores, 'default');
 		expect(result).toContain('Memory Stores:');
@@ -273,21 +291,28 @@ describe('formatStoreList', () => {
 		expect(result).toContain('○ kitchen');
 		expect(result).toContain('12 entities');
 		expect(result).toContain('Active: default');
-	})
+	});
 
 	it('formats empty stores', () => {
 		const stores: MemoryStoreInfo[] = [
-			{ name: 'default', path: '/tmp/default.jsonl', entityCount: 0, relationCount: 0, observationCount: 0, exists: true },
+			{
+				name: 'default',
+				path: '/tmp/default.jsonl',
+				entityCount: 0,
+				relationCount: 0,
+				observationCount: 0,
+				exists: true,
+			},
 		];
 		const result = formatStoreList(stores, 'default');
 		expect(result).toContain('(empty)');
-	})
-})
+	});
+});
 
 describe('listMemoryStores', () => {
 	it('always includes the default store', () => {
 		const stores = listMemoryStores();
 		const defaultStore = stores.find((s) => s.name === 'default');
 		expect(defaultStore).toBeDefined();
-	})
-})
+	});
+});
