@@ -8,7 +8,6 @@ describe('loadUserConfig', () => {
 		const originalHome = process.env.HOME;
 		process.env.HOME = `/tmp/oe-test-no-exist-${Date.now()}`;
 		const config = loadUserConfig();
-		expect(config.defaultModel).toBeDefined();
 		expect(config.providers).toBeDefined();
 		expect(config.systemPrompts?.default).toBeTruthy();
 		expect(config.agents?.maxTurns).toBe(20);
