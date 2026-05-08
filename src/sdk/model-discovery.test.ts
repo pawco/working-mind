@@ -154,23 +154,23 @@ describe('fetchRemoteModels', () => {
 		clearDiskCache();
 	});
 
-	it('returns empty for provider without canValidate', () => {
+	it('returns empty for provider without canValidate', async () => {
 		const localProvider: ProviderEntry = {
 			...mockProvider,
 			canValidate: false,
 		};
 		const result = fetchRemoteModels(localProvider, 'test-key');
-		expect(result).resolves.toEqual([]);
+		await expect(result).resolves.toEqual([]);
 	});
 
-	it('returns empty for provider without needsApiKey', () => {
+	it('returns empty for provider without needsApiKey', async () => {
 		const localProvider: ProviderEntry = {
 			...mockProvider,
 			needsApiKey: false,
 			canValidate: false,
 		};
 		const result = fetchRemoteModels(localProvider, 'test-key');
-		expect(result).resolves.toEqual([]);
+		await expect(result).resolves.toEqual([]);
 	});
 
 	it('parses OpenAI-format response', async () => {
